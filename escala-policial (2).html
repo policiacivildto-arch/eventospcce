@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escala Policial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-900:#0F2036;
+    --navy-800:#16304F;
+    --navy-700:#1E3E63;
+    --navy-600:#2A5182;
+    --gold-600:#A9822F;
+    --gold-500:#C79A3E;
+    --gold-100:#F3E9D2;
+    --bg:#F2F1EC;
+    --surface:#FFFFFF;
+    --line:#DEDCD2;
+    --line-strong:#C7C4B4;
+    --ink:#1B1E22;
+    --ink-soft:#565B62;
+    --ink-mute:#8A8F94;
+    --danger:#A83A2E;
+    --danger-bg:#F7E7E4;
+    --ok:#2E6B4F;
+    --ok-bg:#E6F0EA;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{font-family:inherit;cursor:pointer;}
+  input, select{font-family:inherit;}
+
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    background:
+      linear-gradient(180deg, var(--navy-900) 0%, var(--navy-800) 100%);
+  }
+  .login-card{
+    width:100%;
+    max-width:380px;
+    background:var(--surface);
+    border-radius:4px;
+    padding:36px 32px 32px;
+    border-top:4px solid var(--gold-500);
+  }
+  .login-badge{
+    width:52px;height:52px;border-radius:50%;
+    background:var(--navy-800);
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:18px;
+  }
+  .login-badge svg{width:26px;height:26px;stroke:var(--gold-500);}
+  .login-card h1{
+    font-size:20px;font-weight:600;margin:0 0 4px;color:var(--navy-900);
+    letter-spacing:.2px;
+  }
+  .login-card p.sub{
+    font-size:13px;color:var(--ink-soft);margin:0 0 26px;
+  }
+  .field{margin-bottom:16px;}
+  .field label{
+    display:block;font-size:12px;font-weight:500;color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--line-strong);
+    border-radius:3px;
+    font-size:14px;
+    background:#FBFAF7;
+    color:var(--ink);
+  }
+  .field input:focus, .field select:focus{
+    outline:none;border-color:var(--navy-600);
+    box-shadow:0 0 0 3px rgba(30,62,99,0.12);
+  }
+  .btn-primary{
+    width:100%;
+    background:var(--navy-800);
+    color:#fff;
+    border:none;
+    padding:11px 16px;
+    border-radius:3px;
+    font-size:14px;
+    font-weight:500;
+    margin-top:6px;
+  }
+  .btn-primary:hover{background:var(--navy-700);}
+  .error-msg{
+    background:var(--danger-bg);color:var(--danger);
+    font-size:13px;padding:9px 12px;border-radius:3px;margin-bottom:14px;
+  }
+  .login-hint{
+    margin-top:22px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:11.5px;color:var(--ink-mute);line-height:1.6;
+  }
+
+  /* ---------- APP SHELL ---------- */
+  #app-screen{display:none;min-height:100vh;flex-direction:column;}
+  header.topbar{
+    background:var(--navy-900);
+    color:#fff;
+    padding:0 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    height:60px;
+    flex-shrink:0;
+  }
+  .topbar-left{display:flex;align-items:center;gap:12px;}
+  .topbar-left .mark{
+    width:30px;height:30px;border-radius:50%;background:var(--navy-700);
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--gold-500);
+  }
+  .topbar-left .mark svg{width:15px;height:15px;stroke:var(--gold-500);}
+  .topbar-left .titles h2{font-size:14.5px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .topbar-left .titles span{font-size:11px;color:#B9C4D2;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .user-chip{
+    display:flex;align-items:center;gap:8px;
+    font-size:12.5px;color:#DCE3EB;
+  }
+  .user-chip .role-badge{
+    background:var(--gold-500);color:var(--navy-900);
+    font-size:10.5px;font-weight:600;
+    padding:2px 8px;border-radius:10px;letter-spacing:.3px;
+  }
+  .btn-logout{
+    background:transparent;border:1px solid #3C5271;color:#DCE3EB;
+    padding:6px 12px;border-radius:3px;font-size:12.5px;
+  }
+  .btn-logout:hover{background:var(--navy-700);}
+
+  nav.tabs{
+    background:var(--navy-800);
+    display:flex;
+    padding:0 24px;
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    background:none;border:none;color:#B9C4D2;
+    padding:12px 16px;font-size:13px;font-weight:500;
+    border-bottom:3px solid transparent;
+    white-space:nowrap;
+  }
+  nav.tabs button.active{color:#fff;border-bottom-color:var(--gold-500);}
+  nav.tabs button:hover{color:#fff;}
+
+  main{flex:1;padding:28px 24px 60px;max-width:1080px;width:100%;margin:0 auto;}
+  .section-head{margin-bottom:20px;}
+  .section-head h1{font-size:19px;font-weight:600;margin:0 0 4px;color:var(--navy-900);}
+  .section-head p{font-size:13px;color:var(--ink-soft);margin:0;}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:22px;
+    margin-bottom:20px;
+  }
+  .card h3{font-size:14px;font-weight:600;margin:0 0 16px;color:var(--navy-900);}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:640px){.grid-2{grid-template-columns:1fr;}}
+
+  .step-label{
+    display:flex;align-items:center;gap:8px;
+    font-size:11.5px;font-weight:600;color:var(--gold-600);
+    letter-spacing:.3px;margin-bottom:10px;
+  }
+  .step-num{
+    width:18px;height:18px;border-radius:50%;background:var(--gold-100);
+    color:var(--gold-600);font-size:10.5px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  .horario-list{display:flex;flex-direction:column;gap:8px;}
+  .horario-opt{
+    display:flex;align-items:center;justify-content:space-between;
+    border:1px solid var(--line-strong);border-radius:4px;
+    padding:11px 14px;cursor:pointer;background:#FBFAF7;
+  }
+  .horario-opt.selected{border-color:var(--navy-700);background:var(--navy-900);color:#fff;}
+  .horario-opt.selected .badge-disp{background:var(--gold-500);color:var(--navy-900);}
+  .horario-opt .htxt{font-size:14px;font-weight:500;}
+  .badge-disp{
+    font-size:10.5px;font-weight:600;background:var(--ok-bg);color:var(--ok);
+    padding:3px 9px;border-radius:10px;
+  }
+  .empty-note{
+    font-size:13px;color:var(--ink-mute);padding:14px;
+    background:#FBFAF7;border:1px dashed var(--line-strong);border-radius:4px;
+    text-align:center;
+  }
+
+  .search-box{position:relative;}
+  .search-results{
+    border:1px solid var(--line-strong);border-radius:4px;margin-top:6px;
+    max-height:180px;overflow-y:auto;background:#fff;
+  }
+  .search-row{
+    display:flex;align-items:center;justify-content:between;gap:10px;
+    padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px;
+  }
+  .search-row:last-child{border-bottom:none;}
+  .search-row:hover{background:var(--bg);}
+  .search-row .info{flex:1;}
+  .search-row .mat{font-size:11.5px;color:var(--ink-mute);}
+  .btn-add-mini{
+    border:1px solid var(--navy-700);color:var(--navy-700);background:#fff;
+    font-size:11.5px;padding:4px 10px;border-radius:3px;font-weight:500;
+  }
+  .btn-add-mini:hover{background:var(--navy-900);color:#fff;}
+
+  .chip-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+  .chip{
+    display:flex;align-items:center;gap:7px;
+    background:var(--navy-900);color:#fff;
+    font-size:12.5px;padding:6px 8px 6px 12px;border-radius:16px;
+  }
+  .chip .mat{color:#B9C4D2;font-size:11px;}
+  .chip button{
+    background:rgba(255,255,255,0.15);border:none;color:#fff;
+    width:16px;height:16px;border-radius:50%;font-size:11px;
+    display:flex;align-items:center;justify-content:center;line-height:0;
+  }
+  .chip button:hover{background:rgba(255,255,255,0.3);}
+
+  .vaga-row{
+    border:1px solid var(--line-strong);border-radius:5px;
+    padding:14px 16px;margin-bottom:12px;background:#FBFAF7;
+  }
+  .vaga-num{font-size:11.5px;font-weight:600;color:var(--gold-600);letter-spacing:.3px;margin-bottom:10px;}
+  .vaga-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:560px){.vaga-fields{grid-template-columns:1fr;}}
+  .vaga-field label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:5px;}
+  .vaga-field input{
+    width:100%;padding:9px 11px;border:1px solid var(--line-strong);
+    border-radius:3px;font-size:14px;background:#fff;
+  }
+  .vaga-field input:focus{outline:none;border-color:var(--navy-600);}
+  .vaga-nome{margin-top:8px;font-size:13px;}
+  .vaga-nome-ok{color:var(--ok);font-weight:500;}
+  .vaga-nome-new{color:var(--gold-600);}
+  .vaga-nome-hint{color:var(--ink-mute);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  table th{
+    text-align:left;font-size:11px;font-weight:600;color:var(--ink-soft);
+    padding:8px 10px;border-bottom:1px solid var(--line-strong);
+    background:#FBFAF7;
+  }
+  table td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table tr:last-child td{border-bottom:none;}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:5px;}
+  .tbl-wrap table{border:none;border-radius:0;}
+
+  .btn-sm{
+    border:1px solid var(--line-strong);background:#fff;color:var(--ink);
+    font-size:12px;padding:5px 10px;border-radius:3px;
+  }
+  .btn-sm:hover{background:var(--bg);}
+  .btn-sm.danger{border-color:var(--danger);color:var(--danger);}
+  .btn-sm.danger:hover{background:var(--danger-bg);}
+  .btn-sm.ok{border-color:var(--ok);color:var(--ok);}
+  .btn-sm.ok:hover{background:var(--ok-bg);}
+
+  .status-pill{font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;}
+  .status-pill.on{background:var(--ok-bg);color:var(--ok);}
+  .status-pill.off{background:var(--danger-bg);color:var(--danger);}
+
+  .btn-submit{
+    background:var(--navy-800);color:#fff;border:none;
+    padding:11px 22px;border-radius:3px;font-size:14px;font-weight:500;
+    margin-top:6px;
+  }
+  .btn-submit:hover{background:var(--navy-700);}
+  .btn-submit:disabled{background:var(--ink-mute);cursor:not-allowed;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--navy-900);color:#fff;padding:12px 20px;border-radius:4px;
+    font-size:13.5px;box-shadow:0 6px 18px rgba(0,0,0,0.25);
+    display:none;z-index:50;
+  }
+  .toast.show{display:block;}
+
+  form .form-row{margin-bottom:14px;}
+  form label{display:block;font-size:12px;font-weight:500;color:var(--ink-soft);margin-bottom:6px;}
+  form input, form select{
+    width:100%;padding:9px 11px;border:1px solid var(--line-strong);
+    border-radius:3px;font-size:13.5px;background:#FBFAF7;
+  }
+  form input:focus, form select:focus{outline:none;border-color:var(--navy-600);}
+
+  .inline-form{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
+  .inline-form .field-mini{flex:1;min-width:140px;}
+  .inline-form label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:5px;}
+  .inline-form input, .inline-form select{
+    width:100%;padding:8px 10px;border:1px solid var(--line-strong);
+    border-radius:3px;font-size:13px;
+  }
+
+  .field-error{color:var(--danger);font-size:12px;margin-top:4px;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V5l8-3z"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
+    <h1>Escala policial</h1>
+    <p class="sub">Acesso restrito por departamento</p>
+    <div id="login-error"></div>
+    <div id="login-form">
+      <div class="field">
+        <label for="login-usuario">Usuário</label>
+        <input id="login-usuario" autocomplete="username" placeholder="seu.usuario" />
+      </div>
+      <div class="field">
+        <label for="login-senha">Senha</label>
+        <input id="login-senha" type="password" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+      <button type="button" id="login-submit" class="btn-primary">Entrar</button>
+    </div>
+    <div class="login-hint">
+      Acesso de teste — administrador geral: <span class="mono">admin / admin123</span><br>
+      Acesso de teste — administrador do DTO: <span class="mono">dto_admin / dto123</span><br>
+      Acesso de teste — focal DPM: <span class="mono">dpm / dpm123</span>
+    </div>
+  </div>
+</div>
+
+<div id="app-screen">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V5l8-3z"/></svg>
+      </div>
+      <div class="titles">
+        <h2>Escala policial</h2>
+        <span id="dept-label">—</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <span id="user-name"></span>
+        <span class="role-badge" id="user-role"></span>
+      </div>
+      <button class="btn-logout" id="btn-logout">Sair</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <div id="storage-warning" style="display:none;background:#F7E7E4;color:#A83A2E;font-size:12.5px;padding:9px 24px;">
+    Este arquivo está sendo aberto fora do Claude, então os dados ficam salvos só neste navegador — outros focais não vão vê-los. Para compartilhar a escala entre todos, use o link do Artifact dentro do Claude.
+  </div>
+
+  <main id="main"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+
+var DELEGACIAS_MAP = {"COPLAN": ["10ª Delegacia de Polícia Civil da Capital", "13ª Delegacia de Polícia Civil da Capital", "20ª Delegacia de Polícia Civil da Capital", "22ª Delegacia de Polícia Civil da Capital", "24ª Delegacia de Polícia Civil da Capital", "2ª Delegacia de Polícia Civil da Capital", "7ª Delegacia de Polícia Civil da Capital", "CEPROD", "Delegacia de Polícia Civil de Itaitinga -sistema prisional", "Núcleo Operacional DPC"], "CORE": ["CORE"], "DHPP": ["EQUIPE PLANTONISTA", "EQUIPE SEGUIMENTO", "NO"], "DIP": ["DIP"], "DPE": ["Delegacia de Polícia Civil de Capturas e Polinter", "Delegacia de Polícia Civil do Aeroporto Pinto Martins"], "DPGV": ["1ª DDM FORTALEZA", "DCA", "Delegacia de Polícia Civil de Defesa da Mulher de Juazeiro do Norte"], "DPI NORTE": ["1ª Delegacia de Polícia Civil de Sobral", "2ª Delegacia de Polícia Civil de Sobral", "Delegacia de Civil Polícia de Independência", "Delegacia de Polícia Civil de Acaraú", "Delegacia de Polícia Civil de Amontada", "Delegacia de Polícia Civil de Aracoiaba", "Delegacia de Polícia Civil de Barreira", "Delegacia de Polícia Civil de Baturité", "Delegacia de Polícia Civil de Bela Cruz", "Delegacia de Polícia Civil de Boa Viagem", "Delegacia de Polícia Civil de Camocim", "Delegacia de Polícia Civil de Canindé", "Delegacia de Polícia Civil de Chaval", "Delegacia de Polícia Civil de Coreaú", "Delegacia de Polícia Civil de Crateús", "Delegacia de Polícia Civil de Cruz", "Delegacia de Polícia Civil de Forquilha", "Delegacia de Polícia Civil de Granja", "Delegacia de Polícia Civil de Guaraciaba do Norte", "Delegacia de Polícia Civil de Guaramiranga", "Delegacia de Polícia Civil de Ipu", "Delegacia de Polícia Civil de Ipueiras", "Delegacia de Polícia Civil de Itapajé", "Delegacia de Polícia Civil de Itapipoca", "Delegacia de Polícia Civil de Itarema", "Delegacia de Polícia Civil de Jijoca de Jericoacoara", "Delegacia de Polícia Civil de Marco", "Delegacia de Polícia Civil de Massapê", "Delegacia de Polícia Civil de Monsenhor Tabosa", "Delegacia de Polícia Civil de Nova Russas", "Delegacia de Polícia Civil de Novo Oriente", "Delegacia de Polícia Civil de Ocara", "Delegacia de Polícia Civil de Pacujá", "Delegacia de Polícia Civil de Pentecoste", "Delegacia de Polícia Civil de Redenção", "Delegacia de Polícia Civil de Santa Quitéria", "Delegacia de Polícia Civil de Santana do Acaraú", "Delegacia de Polícia Civil de São Benedito", "Delegacia de Polícia Civil de Tamboril", "Delegacia de Polícia Civil de Tianguá", "Delegacia de Polícia Civil de Ubajara", "Delegacia de Polícia Civil de Uruburetama", "Delegacia de Polícia Civil de Uruoca", "Delegacia de Polícia Civil de Varjota", "Delegacia de Polícia Civil de Viçosa do Ceará"], "DPI SUL": ["1ª Delegacia de Polícia Civil de Juazeiro do Norte", "Delegacia de Polícia Civil de Acopiara", "Delegacia de Polícia Civil de Alto Santo", "Delegacia de Polícia Civil de Aracati", "Delegacia de Polícia Civil de Araripe", "Delegacia de Polícia Civil de Assaré", "Delegacia de Polícia Civil de Aurora", "Delegacia de Polícia Civil de Banabuiú", "Delegacia de Polícia Civil de Barbalha", "Delegacia de Polícia Civil de Barro", "Delegacia de Polícia Civil de Beberibe", "Delegacia de Polícia Civil de Brejo Santo", "Delegacia de Polícia Civil de Campos Sales", "Delegacia de Polícia Civil de Caririaçu", "Delegacia de Polícia Civil de Cedro", "Delegacia de Polícia Civil de Crato", "Delegacia de Polícia Civil de Farias Brito", "Delegacia de Polícia Civil de Icapuí", "Delegacia de Polícia Civil de Icó", "Delegacia de Polícia Civil de Iguatu", "Delegacia de Polícia Civil de Ipaumirim", "Delegacia de Polícia Civil de Iracema", "Delegacia de Polícia Civil de Jaguaretama", "Delegacia de Polícia Civil de Jaguaribe", "Delegacia de Polícia Civil de Jaguaruana", "Delegacia de Polícia Civil de Jardim", "Delegacia de Polícia Civil de Jucás", "Delegacia de Polícia Civil de Lavras da Mangabeira", "Delegacia de Polícia Civil de Limoeiro do Norte", "Delegacia de Polícia Civil de Mauriti", "Delegacia de Polícia Civil de Milagres", "Delegacia de Polícia Civil de Missão Velha", "Delegacia de Polícia Civil de Mombaça", "Delegacia de Polícia Civil de Morada Nova", "Delegacia de Polícia Civil de Nova Olinda", "Delegacia de Polícia Civil de Orós", "Delegacia de Polícia Civil de Parambu", "Delegacia de Polícia Civil de Pedra Branca", "Delegacia de Polícia Civil de Penaforte", "Delegacia de Polícia Civil de Quiterianópolis", "Delegacia de Polícia Civil de Quixadá", "Delegacia de Polícia Civil de Quixeramobim", "Delegacia de Polícia Civil de Russas", "Delegacia de Polícia Civil de Saboeiro", "Delegacia de Polícia Civil de Senador Pompeu", "Delegacia de Polícia Civil de Solonópole", "Delegacia de Polícia Civil de São João do Jaguaribe", "Delegacia de Polícia Civil de Tabuleiro do Norte", "Delegacia de Polícia Civil de Tauá", "Delegacia de Polícia Civil de Várzea Alegre", "Unidade de Atendimento de Aiuaba", "Unidade de Atendimento de Fortim", "Unidade de Atendimento de Quixeré"], "DPM": ["1ª Delegacia de Polícia Civil de Caucaia", "1ª Delegacia de Polícia Civil de Maracanaú", "1ª Delegacia de Polícia Civil de Pacatuba", "2ª Delegacia de Polícia Civil de Caucaia", "2ª Delegacia de Polícia Civil de Maracanaú", "Delegacia de Polícia Civil de Aquiraz", "Delegacia de Polícia Civil de Cascavel", "Delegacia de Polícia Civil de Chorozinho", "Delegacia de Polícia Civil de Eusébio", "Delegacia de Polícia Civil de Guaiúba", "Delegacia de Polícia Civil de Horizonte", "Delegacia de Polícia Civil de Itaitinga", "Delegacia de Polícia Civil de Maranguape", "Delegacia de Polícia Civil de Pacajus", "Delegacia de Polícia Civil de Paracuru", "Delegacia de Polícia Civil de Paraipaba", "Delegacia de Polícia Civil de Pindoretama", "Delegacia de Polícia Civil de São Gonçalo do Amarante", "Delegacia de Polícia Civil de Trairí", "Núcleo Operacional DPM", "SUPERVIÃO DPM"], "DRCO": ["Delegacia de Combate ao Tráfico de Armas, Munições e Explosivos", "Delegacia de Polícia Civil de Narcóticos", "Delegacia de Polícia Civil de Repressão às Ações Criminosas Organizadas", "Delegacia de Polícia Civil de Repressão às Ações Criminosas Organizadas do Interior Norte", "Delegacia de Polícia Civil de Repressão às Ações Criminosas Organizadas do Interior Sul", "Núcleo Operacional DRCO", "Núcleo de Inteligência DRCO"], "DTO": ["ÉGIDE"]};
+
+var DEPARTAMENTOS = Object.keys(DELEGACIAS_MAP).sort();
+
+var HORARIOS_SEED = {"2ª Delegacia de Polícia Civil da Capital": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "7ª Delegacia de Polícia Civil da Capital": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "10ª Delegacia de Polícia Civil da Capital": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "13ª Delegacia de Polícia Civil da Capital": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "20ª Delegacia de Polícia Civil da Capital": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "22ª Delegacia de Polícia Civil da Capital": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "24ª Delegacia de Polícia Civil da Capital": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "CEPROD": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Itaitinga -sistema prisional": ["08:00 às 20:00"], "Núcleo Operacional DPC": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "1ª Delegacia de Polícia Civil de Caucaia": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "1ª Delegacia de Polícia Civil de Maracanaú": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "1ª Delegacia de Polícia Civil de Pacatuba": ["08:00 às 20:00", "20:00 às 08:00"], "2ª Delegacia de Polícia Civil de Caucaia": ["08:00 às 20:00", "20:00 às 08:00"], "2ª Delegacia de Polícia Civil de Maracanaú": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Aquiraz": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Cascavel": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Chorozinho": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Eusébio": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Guaiúba": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Horizonte": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Itaitinga": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Maranguape": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Pacajus": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Paracuru": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Paraipaba": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Pindoretama": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de São Gonçalo do Amarante": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Trairí": ["08:00 às 20:00", "20:00 às 08:00"], "Núcleo Operacional DPM": ["02:00 às 20:00", "08:00 às 02:00"], "SUPERVIÃO DPM": ["02:00 às 20:00", "08:00 às 02:00"], "Delegacia de Polícia Civil de Tianguá": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Baturité": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Itapipoca": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Acaraú": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Crateús": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Camocim": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "1ª Delegacia de Polícia Civil de Sobral": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Canindé": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Granja": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de São Benedito": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Ipu": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Guaraciaba do Norte": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Pacujá": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Forquilha": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Massapê": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Varjota": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Boa Viagem": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Aracoiaba": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Tamboril": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Itapajé": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Pentecoste": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Amontada": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Itarema": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Jijoca de Jericoacoara": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Monsenhor Tabosa": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Santa Quitéria": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Bela Cruz": ["08:00 às 20:00", "20:00 às 08:00"], "2ª Delegacia de Polícia Civil de Sobral": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Coreaú": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Santana do Acaraú": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Chaval": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Uruoca": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Ubajara": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Viçosa do Ceará": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Ocara": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Redenção": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Barreira": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Guaramiranga": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Ipueiras": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Nova Russas": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Civil Polícia de Independência": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Novo Oriente": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Uruburetama": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Cruz": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Marco": ["08:00 às 20:00", "20:00 às 08:00"], "1ª Delegacia de Polícia Civil de Juazeiro do Norte": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Acopiara": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Alto Santo": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Aracati": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Araripe": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Assaré": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Aurora": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Banabuiú": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Barbalha": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Barro": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Beberibe": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Brejo Santo": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Campos Sales": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Caririaçu": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Cedro": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Crato": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Farias Brito": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Icapuí": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Icó": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Iguatu": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Ipaumirim": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Iracema": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Jaguaretama": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Jaguaribe": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Jaguaruana": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Jardim": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Jucás": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Lavras da Mangabeira": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Limoeiro do Norte": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Mauriti": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Milagres": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Missão Velha": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Mombaça": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Morada Nova": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Nova Olinda": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Orós": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Parambu": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Pedra Branca": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Penaforte": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Quiterianópolis": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Quixadá": ["08:00 às 08:00", "08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Quixeramobim": ["08:00 às 08:00", "08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Russas": ["08:00 às 08:00", "08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Saboeiro": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de São João do Jaguaribe": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Senador Pompeu": ["08:00 às 08:00", "08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Solonópole": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Tabuleiro do Norte": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Tauá": ["08:00 às 08:00", "08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Várzea Alegre": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Unidade de Atendimento de Aiuaba": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Unidade de Atendimento de Fortim": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Unidade de Atendimento de Quixeré": ["08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Capturas e Polinter": ["07:00 às 19:00", "08:00 às 08:00", "08:00 às 20:00", "14:00 às 08:00", "20:00 às 08:00"], "Delegacia de Polícia Civil do Aeroporto Pinto Martins": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "EQUIPE PLANTONISTA": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "EQUIPE SEGUIMENTO": ["08:00 às 17:00", "08:00 às 20:00", "10:00 às 22:00", "13:00 às 01:00", "17:00 às 01:00"], "NO": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "1ª DDM FORTALEZA": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "DCA": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Defesa da Mulher de Juazeiro do Norte": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Repressão às Ações Criminosas Organizadas": ["08:00 às 20:00", "20:00 às 08:00"], "Núcleo de Inteligência DRCO": ["08:00 às 20:00", "20:00 às 08:00"], "Núcleo Operacional DRCO": ["08:00 às 20:00"], "Delegacia de Polícia Civil de Repressão às Ações Criminosas Organizadas do Interior Sul": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Repressão às Ações Criminosas Organizadas do Interior Norte": ["08:00 às 20:00", "20:00 às 08:00"], "Delegacia de Polícia Civil de Narcóticos": ["20:00 às 08:00"], "Delegacia de Combate ao Tráfico de Armas, Munições e Explosivos": ["08:00 às 20:00"], "CORE": ["08:00 às 18:00", "08:00 às 20:00", "20:00 às 08:00"], "ÉGIDE": ["08:00 às 20:00", "19:00 às 01:00"], "DIP": ["08:00 às 08:00", "08:00 às 20:00", "20:00 às 08:00"]};
+
+var POLICIAIS_SEED = {"40453911": "ANTONIO REGYSLARIO ALBUQUERQUE PESSOA", "01218417": "JOSE WILTON FREITAS LIMA", "30055519": "MARCO AURELIO EHMKE PIZZOLATTI", "16902217": "ANTONIO GEORGE DE FREITAS JUNIOR", "30119967": "CLEBIO GOMES FERREIRA", "30074017": "CRISTIANO SOARES DUARTE", "16791210": "ESPEDITO JONATAS GERONIMO DOS SANTOS", "2563118": "FLAVIO RUBENS BARROS DE ARAUJO", "30121392": "FRANCISCA HELENA DO NASCIMENTO ARRUDA", "9470913": "FRANCISCO PERILO DE SOUSA", "30004116": "FRANCISCO VILACIO MORAES DE OLIVEIRA", "16777218": "FRANCISCO WINSTON REGO LOPES", "9470816": "HELIO MATOS COSTA", "30031113": "JOSE DEUZIMAR DE SANTANA JUNIOR", "30110714": "LUZIANY GOMES DE SOUSA", "30051610": "MARCIA FAUSTINO DE SOUSA", "9479317": "MARCO ANTONIO CAETANO DE LIMA", "16777013": "PAULO VINICIUS COELHO LIMA", "13396116": "TERESA CRISTINA TEIXEIRA NUNES FRANKLIN", "30118715": "VINICIUS LIMA SABOIA RIBEIRO", "30124197": "WEMERSON JOSE CORREA CASTRO", "30120051": "ICARO GOMES COELHO", "30078012": "ANDRE ANDERSON GOUVEIA DE MOURA", "30009169": "ATHILA ARAUJO PEREIRA MOTA", "30120183": "CAMILA ALVES NASCIMENTO", "30009436": "FERNANDA LINHARES SILVA", "19829413": "JOSE IRANILDO SANTOS ARAGAO", "8034311": "JOSE MUNGUBA NETO", "19844315": "MALAKE WAKED TANOS", "16900117": "ANA MARY MOTA", "30027310": "ANDREIA LEITE ANDRADE", "1373951X": "CLAUDENIR SILVA DE OLIVEIRA", "40471413": "CONCEICAO DE MARIA PARENTE RODRIGUES", "30095715": "EMERSON ROBERTO RODRIGUES ALVES", "13397511": "FRANCISCA MARISE DE MOURA FEIJO", "30106717": "JACKSON NASCIMENTO DA SILVA", "40486518": "JARBAS PINHEIRO SOARES HOLANDA", "30022718": "JEAN PAUL AGUIAR DE AQUINO", "13317917": "JOAO FILOMENO NETO", "10833612": "JOSE HILTON DE FREITAS LIMA", "1553091X": "JOSE MARCAN DA SILVA SOUSA", "30122119": "JOSE MOREIRA CIPRIANO FILHO", "30064410": "LAMARTINE LIMA FEITOSA DE OLIVEIRA", "40506918": "PAULO MARCOS CRUZ LIMA FILHO", "40509313": "REIZA DELGADO FIGUEIREDO", "30119371": "RIVANDA BENEVIDES CAVALCANTE", "40510613": "RONALDO MOREIRA BARROS", "1834924": "VERA LUCIA ALVES OLIVEIRA", "30096916": "ANDRE LUIZ SOARES CAVALCANTE", "19842312": "CLAUDIA REGIA AMAZONAS HIWATASHI", "13315116": "ANDERSON DIAS DO PRADO", "19828719": "ANDREA GILMARA FORTE GONCALVES", "16774316": "ANTONIO AUGUSTO SOUSA SILVA", "16793418": "ARISTIDES FERREIRA DOS SANTOS NETO", "16902012": "EDILSON ALVES DOS SANTOS JUNIOR", "40468919": "EMERSON PAULINELE DE FREITAS PAIVA", "3012278X": "FRANCISCO ADAIL ALVES DE OLIVEIRA", "40483713": "FRANCISCO DIOGENES PINHEIRO NETO", "16775819": "FRANCISCO ROBERTO ANDRADE MARQUES", "40484914": "FRANCISCO RODRIGUES DE ARAUJO FILHO", "13317712": "JAIRTON SIDICLEY VALENTE LIMA", "30005112": "JOSE GLEIDSON PEREIRA RAMOS", "10630215": "KASSIA NEYLA COSTA DE OLIVEIRA", "30044916": "KIRNA KARINA MAIA FONSECA SOUSA", "30104811": "MARCELO SILVERIO DE CASTRO", "30007018": "RAIMUNDO FEIJO DE SOUSA FILHO", "30007816": "ROSANGELA EUFRASIO DE ARAUJO", "40512810": "SOCRATES SILVA PAIVA", "13381313": "DEBORA MOREIRA VERISSIMO", "1434012": "HELIO MARQUES DE CARVALHO", "16800910": "ALISSON RILKER PAIVA", "16794015": "ANTONIO JEFFERSON LEMOS", "40472215": "DANIELLE FEITOSA FERNANDES VIEIRA DE MORAIS", "30063112": "DAVI CARVALHO BARROSO", "16901210": "EDUARDO SYDNEY MATIAS LIMA", "30088514": "FELIPE CAJAZEIRAS DE FREITAS", "40485015": "FRANCISCO RODRIGUES DA SILVA", "16902519": "HERLON MARTINS MARQUES", "16784516": "KELLITON MAGALHAES PINHEIRO", "30033817": "KEYVIANNE GOMES DE ALCANTARA", "1083421X": "MAILTON FEITOSA DE ALMEIDA", "30088913": "MANUELA CHAVES RIBEIRO GUIMARAES", "16795216": "MARCIO FEITOSA GARCIA", "16798614": "MARCOS FLAVIO SILVA RIBEIRO", "30076311": "NATALIA FERNANDES DE SOUSA SARAIVA", "30062817": "NAYARA ROCHELLE DE SALES OLIVEIRA", "30120930": "RAFAEL COSTA BARROS TEIXEIRA", "19820513": "SASSO SALIM AMARAL SALES DE OLIVEIRA", "19830217": "TIAGO RIBEIRO ALEXANDRE", "16904112": "VALTER BATISTA DE SOUSA JUNIOR", "16905119": "VANIA MARIA MAIA DE ALMEIDA", "19843513": "ANA CRISTINA LIMA E SILVA", "13385114": "MARX MENDES QUARESMA", "30011015": "DAILSON PEREIRA COLARES", "16792616": "DAVID XAVIER DA SILVA", "30124820": "DIEGO MARADONA CEZARIO", "30121104": "ELISEU VIANA CARVALHO", "40492119": "FERNANDA MOREIRA DE SENA", "30045513": "FRANCISCO LUZARDO DA SILVA", "19832112": "JARISMAR CARLOS DE MORAIS", "16779717": "JOAO EUDES LOPES DA SILVEIRA", "16780111": "JOSE MARIA DA SILVA", "4050141X": "MANOEL EDUARDO SERPA SAMPAIO", "30006518": "MARCIO CRISTIANI SOARES SILVA", "40503617": "MARTA CAROLINA VALE SERPA", "30011856": "MATEUS LIBERATO CAMPELO ARRUDA", "40504419": "MILCEA DE JESUS FONSECA SILVA", "16777617": "PAULO CESAR DE OLIVEIRA BARBOSA FILHO", "30012534": "RODRIGO SILVEIRA RODRIGUES", "10636310": "ROMULO LIMA BARBOSA", "30111419": "SAMMY ALVES PASSOS", "19876519": "DIONISIO AMARAL DA PAZ", "8275718": "FRANCISCA MARLUCE CRESCENCIO DE CASTRO MACHADO", "30026918": "BRUNA LUSTOSA PELLEGRINI", "40462511": "CAIO PIMENTEL RUIVO SILVA", "30023714": "DANIELE VIDAL DE CASTRO BARROSO", "10623812": "EUDESIO LUIZ DOS SANTOS", "40477519": "FELIPE BEZERRA HOLANDA", "1679211X": "FRANCISCO ASSIS BATISTA MAGALHAES JUNIOR", "3012264X": "FRANCISCO WELTON MARQUES FARIAS", "10833116": "FRANCISCO XEREZ BARROS SIQUEIRA", "30011414": "GABRYELA CARLOS SALES", "19831116": "JORGE HENRIQUE BRITO MOLITERNI JUNIOR", "9295917": "JOSE EVERARDO ROCHA", "40497617": "JULIANA SAMARA DE SOUZA GARCIA", "30006011": "LEOMARCIO DO AMARAL BRANDAO", "16784818": "LUIZ VITOR SIMPLICIO DANTAS", "40504117": "MICHAEL DOUGLAS PESSOA", "30041917": "SAMUEL VASCIMON CAVALCANTE NOGUEIRA", "30124200": "TIAGO LEITE BESSA", "13382514": "FRANCISCO BRUNO DE FIGUEREDO FILHO", "30012313": "LUCIANO LACERDA LEITE", "13738319": "ANTONIO RICARDO CAVALCANTE MARTINS", "13738610": "ARYOSVALDO RODRIGUES DE FARIAS", "40472312": "DANIELLE MARIA PINHEIRO DE FREITAS", "30077318": "EDUARDO BARBOSA DA ROCHA", "10623219": "FABIO CAPISTRANO COSTA", "30086910": "FABIO COELHO BARBOSA", "40470417": "FABIO JOSE BARBOSA DA SILVA", "16784419": "FRANCISCO JOEL DE OLIVEIRA", "16781819": "FRANCISCO RIBEIRO SILVA", "30119150": "GUIDO GOMES RIBEIRO NETO", "40480617": "HELY BASTOS CORREIA", "30044215": "JOAO PAULO DUARTE GONCALVES", "1426214": "JOSE VIRMON DE LIMA LOPES", "1071771X": "LEONARDO BENEVENUTO MESQUITA", "16801313": "MARIA ELIANE PEREIRA GOMES", "30120086": "NADJA MENESES CARNEIRO NUNES", "16790516": "PAULO BEZERRA FURTADO", "30122623": "RENAN PINTO MOURA", "13548919": "STEBIO VIANA FALCAO", "40517715": "WILSON COSTA NOGUEIRA NETO", "40454713": "ALEXANDRE PAULO DE BRITO SAUNDERS", "30010418": "ANTONIA REGIA PRIMO DE ARAUJO", "10619416": "ANTONIO CARLOS SILVA PINTO", "30010299": "ANTONIO COSTA DO NASCIMENTO FILHO", "15192011": "AQUINO JOSE DE OLIVEIRA", "9301119": "CARLOS ALBERTO COELHO GOUVEIA", "4046381X": "CHARLES FREIRE BEZERRA"};
+
+var DELEGACIA_TO_DEPTO = {};
+DEPARTAMENTOS.forEach(function(dep){
+  DELEGACIAS_MAP[dep].forEach(function(d){ DELEGACIA_TO_DEPTO[d] = dep; });
+});
+
+function todasDelegaciasFlat(){
+  var all = [];
+  DEPARTAMENTOS.forEach(function(dep){ DELEGACIAS_MAP[dep].forEach(function(d){ all.push(d); }); });
+  return all.sort();
+}
+function delegaciasForCurrentUser(){
+  if(state.user.role==='admin') return todasDelegaciasFlat();
+  return (DELEGACIAS_MAP[state.user.departamento] || []).slice().sort();
+}
+function isGlobalAdmin(){ return state.user.role==='admin'; }
+function isDeptAdmin(){ return state.user.role==='admin_departamento'; }
+
+// ---------- state ----------
+var state = {
+  user: null,
+  tab: 'lancamento',
+  users: [],
+  horarios: [],
+  policiais: [],
+  lancamentos: [],
+  selDelegacia: '',
+  selHorario: '',
+  vagaSlots: [],
+  dataLancamento: todayISO()
+};
+
+function todayISO(){
+  var d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function nowTimeBR(){
+  var d = new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function nowISO(){ return new Date().toISOString(); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function fmtDateBR(iso){
+  if(!iso) return '';
+  var p = iso.split('-');
+  return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso;
+}
+
+// ---------- storage ----------
+async function loadAll(){
+  if(hasSheetsBackend()){
+    var data = await apiGetAll();
+    state.users = data.usuarios || [];
+    state.horarios = (data.horarios || []).map(normalizeHorario);
+    state.policiais = data.policiais || [];
+    state.lancamentos = data.lancamentos || [];
+    if(state.users.length===0){
+      await seedSheetsBackend();
+      var data2 = await apiGetAll();
+      state.users = data2.usuarios || [];
+      state.horarios = (data2.horarios || []).map(normalizeHorario);
+      state.policiais = data2.policiais || [];
+      state.lancamentos = data2.lancamentos || [];
+    }
+    return;
+  }
+  await ensureSeed();
+  var u = await safeGet('app-users', true);
+  var h = await safeGet('app-horarios', true);
+  var p = await safeGet('app-policiais', true);
+  var l = await safeGet('app-lancamentos', true);
+  state.users = u ? JSON.parse(u) : [];
+  state.horarios = h ? JSON.parse(h) : [];
+  state.policiais = p ? JSON.parse(p) : [];
+  state.lancamentos = l ? JSON.parse(l) : [];
+}
+// ============================================================
+// CONFIGURAÇÃO DO BACKEND (Google Sheets via Apps Script)
+// Depois de implantar o Apps Script (ver apps-script-backend.gs),
+// cole aqui a URL que termina em /exec. Deixe vazio ('') para
+// o app funcionar sozinho, sem planilha como backend.
+// ============================================================
+var API_URL = 'https://script.google.com/macros/s/AKfycbzwGlDawNwcKCrKl19SAGW0DnxGdHQkYm8aWx1wuB_hBjfBviv4LEJXo4-fAwLP8_f1/exec';
+
+function hasSheetsBackend(){ return !!API_URL; }
+
+async function apiGetAll(){
+  var res = await fetch(API_URL + '?action=getAll');
+  return await res.json();
+}
+async function apiReplace(sheetName, data){
+  await fetch(API_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({action:'replace', sheet: sheetName, data: data})
+  });
+}
+function normalizeHorario(h){
+  h.ativo = (h.ativo===true || h.ativo==='TRUE' || h.ativo==='true' || h.ativo===1);
+  h.vagas = Number(h.vagas) || 1;
+  return h;
+}
+function buildSeedUsers(){
+  return [
+    {id: uid(), usuario:'admin', senha:'admin123', departamento:'', role:'admin'},
+    {id: uid(), usuario:'dto_admin', senha:'dto123', departamento:'DTO', role:'admin_departamento'},
+    {id: uid(), usuario:'dpm', senha:'dpm123', departamento:'DPM', role:'departamento'}
+  ];
+}
+function buildSeedHorarios(){
+  var seedHorarios = [];
+  Object.keys(HORARIOS_SEED).forEach(function(delegacia){
+    HORARIOS_SEED[delegacia].forEach(function(horario){
+      seedHorarios.push({id: uid(), delegacia: delegacia, horario: horario, ativo: true, vagas: 1});
+    });
+  });
+  return seedHorarios;
+}
+function buildSeedPoliciais(){
+  return Object.keys(POLICIAIS_SEED).map(function(mat){
+    return {matricula: mat, nome: POLICIAIS_SEED[mat], telefone: ''};
+  });
+}
+async function seedSheetsBackend(){
+  await apiReplace('usuarios', buildSeedUsers());
+  await apiReplace('horarios', buildSeedHorarios());
+  await apiReplace('policiais', buildSeedPoliciais());
+  await apiReplace('lancamentos', []);
+}
+
+function hasCloudStorage(){
+  return typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get==='function' && typeof window.storage.set==='function';
+}
+async function safeGet(key, shared){
+  if(hasCloudStorage()){
+    try{
+      var r = await window.storage.get(key, !!shared);
+      return r ? r.value : null;
+    }catch(e){ /* fall through to local */ }
+  }
+  try{ return localStorage.getItem('escala_'+key); }catch(e2){ return null; }
+}
+async function safeSet(key, value, shared){
+  if(hasCloudStorage()){
+    try{
+      await window.storage.set(key, value, !!shared);
+      return true;
+    }catch(e){ /* fall through to local */ }
+  }
+  try{ localStorage.setItem('escala_'+key, value); return true; }
+  catch(e2){ console.error('storage set failed', key, e2); return false; }
+}
+async function ensureSeed(){
+  var existing = await safeGet('app-users', true);
+  if(!existing){
+    await safeSet('app-users', JSON.stringify(buildSeedUsers()), true);
+  }
+  var existingH = await safeGet('app-horarios', true);
+  var existingHArr = existingH ? JSON.parse(existingH) : [];
+  if(!existingH || existingHArr.length===0){
+    await safeSet('app-horarios', JSON.stringify(buildSeedHorarios()), true);
+  }
+  var existingP = await safeGet('app-policiais', true);
+  var existingPArr = existingP ? JSON.parse(existingP) : [];
+  if(!existingP || existingPArr.length===0){
+    await safeSet('app-policiais', JSON.stringify(buildSeedPoliciais()), true);
+  }
+  var existingL = await safeGet('app-lancamentos', true);
+  if(!existingL){
+    await safeSet('app-lancamentos', JSON.stringify([]), true);
+  }
+}
+async function persistUsers(){
+  if(hasSheetsBackend()) return apiReplace('usuarios', state.users);
+  await safeSet('app-users', JSON.stringify(state.users), true);
+}
+async function persistHorarios(){
+  if(hasSheetsBackend()) return apiReplace('horarios', state.horarios);
+  await safeSet('app-horarios', JSON.stringify(state.horarios), true);
+}
+async function persistPoliciais(){
+  if(hasSheetsBackend()) return apiReplace('policiais', state.policiais);
+  await safeSet('app-policiais', JSON.stringify(state.policiais), true);
+}
+async function persistLancamentos(){
+  if(hasSheetsBackend()) return apiReplace('lancamentos', state.lancamentos);
+  await safeSet('app-lancamentos', JSON.stringify(state.lancamentos), true);
+}
+
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+
+// ---------- login ----------
+async function doLogin(e){
+  if(e) e.preventDefault();
+  var usuario = document.getElementById('login-usuario').value.trim();
+  var senha = document.getElementById('login-senha').value;
+  var errBox = document.getElementById('login-error');
+  errBox.innerHTML = '';
+  if(!usuario || !senha){
+    errBox.innerHTML = '<div class="error-msg">Informe usuário e senha.</div>';
+    return;
+  }
+  await loadAll();
+  var match = state.users.find(function(u){ return u.usuario.toLowerCase()===usuario.toLowerCase() && u.senha===senha; });
+  if(!match){
+    errBox.innerHTML = '<div class="error-msg">Usuário ou senha incorretos.</div>';
+    return;
+  }
+  state.user = match;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'flex';
+  state.tab = match.role==='admin' ? 'lancamentos-admin' : (match.role==='admin_departamento' ? 'lancamentos-admin' : 'lancamento');
+  renderShell();
+}
+document.getElementById('login-submit').addEventListener('click', doLogin);
+document.getElementById('login-senha').addEventListener('keydown', function(e){
+  if(e.key==='Enter') doLogin(e);
+});
+document.getElementById('login-usuario').addEventListener('keydown', function(e){
+  if(e.key==='Enter') doLogin(e);
+});
+
+document.getElementById('btn-logout').addEventListener('click', function(){
+  state.user = null;
+  document.getElementById('login-usuario').value='';
+  document.getElementById('login-senha').value='';
+  document.getElementById('login-error').innerHTML='';
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+});
+
+// ---------- shell ----------
+function renderShell(){
+  document.getElementById('user-name').textContent = state.user.usuario;
+  document.getElementById('user-role').textContent =
+    isGlobalAdmin() ? 'ADMIN' :
+    isDeptAdmin() ? ('ADMIN ' + state.user.departamento) :
+    (state.user.departamento||'—');
+  document.getElementById('dept-label').textContent =
+    isGlobalAdmin() ? 'Painel administrativo' :
+    isDeptAdmin() ? ('Administrador do departamento ' + state.user.departamento) :
+    ('Departamento ' + state.user.departamento);
+
+  var tabsDef;
+  if(isGlobalAdmin()){
+    tabsDef = [
+      ['lancamentos-admin','Lançamentos'],
+      ['horarios','Horários'],
+      ['policiais','Policiais'],
+      ['usuarios','Usuários']
+    ];
+  } else if(isDeptAdmin()){
+    tabsDef = [
+      ['lancamentos-admin','Lançamentos do departamento'],
+      ['horarios','Horários do departamento'],
+      ['policiais','Policiais'],
+      ['usuarios','Usuários do departamento']
+    ];
+  } else {
+    tabsDef = [
+      ['lancamento','Novo lançamento'],
+      ['meus-lancamentos','Lançamentos do departamento']
+    ];
+  }
+
+  var tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = tabsDef.map(function(t){
+    return '<button data-tab="'+t[0]+'" class="'+(state.tab===t[0]?'active':'')+'">'+t[1]+'</button>';
+  }).join('');
+  Array.prototype.forEach.call(tabsEl.querySelectorAll('button'), function(btn){
+    btn.addEventListener('click', function(){
+      state.tab = btn.getAttribute('data-tab');
+      renderShell();
+    });
+  });
+
+  renderMain();
+}
+
+function renderMain(){
+  var main = document.getElementById('main');
+  if(state.tab==='lancamento') return renderLancamentoForm(main);
+  if(state.tab==='meus-lancamentos') return renderLancamentosList(main, state.user.departamento);
+  if(state.tab==='lancamentos-admin') return renderLancamentosList(main, isGlobalAdmin() ? null : state.user.departamento);
+  if(state.tab==='horarios') return renderHorariosAdmin(main);
+  if(state.tab==='policiais') return renderPoliciaisAdmin(main);
+  if(state.tab==='usuarios') return renderUsuariosAdmin(main);
+}
+
+// ---------- DPM: novo lançamento ----------
+function renderLancamentoForm(main){
+  var delegacias = DELEGACIAS_MAP[state.user.departamento] || [];
+  var horariosDaDelegacia = state.horarios.filter(function(h){
+    return h.delegacia===state.selDelegacia && h.ativo;
+  });
+  var horarioSelecionado = state.horarios.find(function(h){ return h.id===state.selHorario; });
+  var numVagas = horarioSelecionado ? (horarioSelecionado.vagas || 1) : 0;
+
+  main.innerHTML =
+    '<div class="section-head">'+
+      '<h1>Novo lançamento de escala</h1>'+
+      '<p>Selecione a delegacia, o horário predefinido e preencha as vagas.</p>'+
+    '</div>'+
+
+    '<div class="card">'+
+      '<div class="step-label"><span class="step-num">1</span> Delegacia</div>'+
+      '<select id="sel-delegacia">'+
+        '<option value="">Selecionar delegacia</option>'+
+        delegacias.map(function(d){
+          return '<option value="'+escapeHtml(d)+'" '+(d===state.selDelegacia?'selected':'')+'>'+escapeHtml(d)+'</option>';
+        }).join('')+
+      '</select>'+
+    '</div>'+
+
+    (state.selDelegacia ? (
+    '<div class="card">'+
+      '<div class="step-label"><span class="step-num">2</span> Horário disponível</div>'+
+      (horariosDaDelegacia.length ?
+        '<div class="horario-list">'+
+          horariosDaDelegacia.map(function(h){
+            var v = h.vagas || 1;
+            return '<div class="horario-opt '+(state.selHorario===h.id?'selected':'')+'" data-horario="'+h.id+'">'+
+                     '<span class="htxt">'+escapeHtml(h.horario)+'</span>'+
+                     '<span class="badge-disp">'+v+' vaga'+(v===1?'':'s')+'</span>'+
+                   '</div>';
+          }).join('')+
+        '</div>'
+        :
+        '<div class="empty-note">Nenhum horário cadastrado para esta delegacia. Peça ao administrador para cadastrar em "Horários".</div>'
+      )+
+    '</div>' ) : '')+
+
+    (state.selDelegacia && state.selHorario ? (
+    '<div class="card">'+
+      '<div class="step-label"><span class="step-num">3</span> Vagas — matrícula e telefone</div>'+
+      '<div id="vagas-grid">'+
+        Array.from({length: numVagas}).map(function(_, idx){
+          var slot = state.vagaSlots[idx] || {matricula:'', nome:'', telefone:''};
+          return renderVagaSlotHtml(idx, slot);
+        }).join('')+
+      '</div>'+
+    '</div>'+
+
+    '<div class="card">'+
+      '<div class="step-label"><span class="step-num">4</span> Data do lançamento</div>'+
+      '<div class="grid-2">'+
+        '<div>'+
+          '<label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Data</label>'+
+          '<input type="date" id="data-lanc" value="'+state.dataLancamento+'" />'+
+        '</div>'+
+      '</div>'+
+      '<button class="btn-submit" id="btn-salvar-lancamento">Salvar lançamento</button>'+
+      '<div id="lanc-error"></div>'+
+    '</div>'
+    ) : '');
+
+  var selDel = document.getElementById('sel-delegacia');
+  if(selDel){
+    selDel.addEventListener('change', function(){
+      state.selDelegacia = selDel.value;
+      state.selHorario = '';
+      state.vagaSlots = [];
+      renderMain();
+    });
+  }
+
+  Array.prototype.forEach.call(main.querySelectorAll('.horario-opt'), function(el){
+    el.addEventListener('click', function(){
+      var novoId = el.getAttribute('data-horario');
+      if(state.selHorario !== novoId){
+        state.selHorario = novoId;
+        state.vagaSlots = [];
+      }
+      renderMain();
+    });
+  });
+
+  wireVagaSlotEvents(main);
+
+  var dataInput = document.getElementById('data-lanc');
+  if(dataInput){
+    dataInput.addEventListener('change', function(){ state.dataLancamento = dataInput.value; });
+  }
+
+  var btnSalvar = document.getElementById('btn-salvar-lancamento');
+  if(btnSalvar){
+    btnSalvar.addEventListener('click', salvarLancamento);
+  }
+
+  var firstVagaInput = main.querySelector('.vaga-matricula[data-idx="0"]');
+  if(firstVagaInput) firstVagaInput.focus();
+}
+
+function renderVagaSlotHtml(idx, slot){
+  var found = slot.matricula ? state.policiais.find(function(p){ return p.matricula===slot.matricula; }) : null;
+  return '<div class="vaga-row" data-vagaidx="'+idx+'">'+
+      '<div class="vaga-num">Vaga '+(idx+1)+'</div>'+
+      '<div class="vaga-fields">'+
+        '<div class="vaga-field">'+
+          '<label>Matrícula</label>'+
+          '<input class="vaga-matricula mono" data-idx="'+idx+'" placeholder="Matrícula" value="'+escapeHtml(slot.matricula||'')+'" />'+
+        '</div>'+
+        '<div class="vaga-field">'+
+          '<label>Telefone</label>'+
+          '<input class="vaga-telefone" data-idx="'+idx+'" placeholder="(00) 00000-0000" value="'+escapeHtml(slot.telefone||'')+'" />'+
+        '</div>'+
+      '</div>'+
+      '<div class="vaga-nome" data-idx="'+idx+'">'+
+        (slot.matricula
+          ? (found ? ('<span class="vaga-nome-ok">'+escapeHtml(found.nome)+'</span>') : '<span class="vaga-nome-new">Matrícula não cadastrada — informe o nome abaixo</span>')
+          : '<span class="vaga-nome-hint">Digite a matrícula para preencher o nome</span>')+
+      '</div>'+
+      (slot.matricula && !found ?
+        '<div class="vaga-field" style="margin-top:8px;">'+
+          '<label>Nome (novo cadastro)</label>'+
+          '<input class="vaga-nome-input" data-idx="'+idx+'" placeholder="Nome completo" value="'+escapeHtml(slot.nome||'')+'" />'+
+        '</div>' : '')+
+    '</div>';
+}
+
+function wireVagaSlotEvents(main){
+  Array.prototype.forEach.call(main.querySelectorAll('.vaga-matricula'), function(inp){
+    inp.oninput = function(){
+      var idx = parseInt(inp.getAttribute('data-idx'),10);
+      if(!state.vagaSlots[idx]) state.vagaSlots[idx] = {matricula:'', nome:'', telefone:''};
+      state.vagaSlots[idx].matricula = inp.value.trim();
+      var found = state.policiais.find(function(p){ return p.matricula===state.vagaSlots[idx].matricula; });
+      if(found && !state.vagaSlots[idx].telefone){
+        state.vagaSlots[idx].telefone = found.telefone || '';
+      }
+      if(found){ state.vagaSlots[idx].nome = found.nome; }
+      refreshVagaSlotKeepFocus(main, idx, 'matricula');
+    };
+  });
+  Array.prototype.forEach.call(main.querySelectorAll('.vaga-telefone'), function(inp){
+    inp.oninput = function(){
+      var idx = parseInt(inp.getAttribute('data-idx'),10);
+      if(!state.vagaSlots[idx]) state.vagaSlots[idx] = {matricula:'', nome:'', telefone:''};
+      state.vagaSlots[idx].telefone = inp.value;
+    };
+  });
+  Array.prototype.forEach.call(main.querySelectorAll('.vaga-nome-input'), function(inp){
+    inp.oninput = function(){
+      var idx = parseInt(inp.getAttribute('data-idx'),10);
+      if(!state.vagaSlots[idx]) state.vagaSlots[idx] = {matricula:'', nome:'', telefone:''};
+      state.vagaSlots[idx].nome = inp.value;
+    };
+  });
+}
+
+function refreshVagaSlotKeepFocus(main, idx, focusField){
+  var row = main.querySelector('.vaga-row[data-vagaidx="'+idx+'"]');
+  if(!row) return;
+  var slot = state.vagaSlots[idx] || {matricula:'', nome:'', telefone:''};
+  var caretEl = main.querySelector('.vaga-'+focusField+'[data-idx="'+idx+'"]');
+  var caretPos = caretEl ? caretEl.selectionStart : null;
+  var wrapper = document.createElement('div');
+  wrapper.innerHTML = renderVagaSlotHtml(idx, slot);
+  var newRow = wrapper.firstChild;
+  row.parentNode.replaceChild(newRow, row);
+  wireVagaSlotEvents(main);
+  var refocus = main.querySelector('.vaga-'+focusField+'[data-idx="'+idx+'"]');
+  if(refocus){
+    refocus.focus();
+    if(caretPos!==null){ try{ refocus.setSelectionRange(caretPos, caretPos); }catch(e){} }
+  }
+}
+
+async function salvarLancamento(){
+  var errBox = document.getElementById('lanc-error');
+  errBox.innerHTML='';
+  if(!state.selDelegacia){ errBox.innerHTML='<div class="field-error">Selecione a delegacia.</div>'; return; }
+  if(!state.selHorario){ errBox.innerHTML='<div class="field-error">Selecione o horário.</div>'; return; }
+  if(!state.dataLancamento){ errBox.innerHTML='<div class="field-error">Informe a data.</div>'; return; }
+
+  var slotsPreenchidos = state.vagaSlots.filter(function(s){ return s && s.matricula; });
+  if(slotsPreenchidos.length===0){ errBox.innerHTML='<div class="field-error">Preencha ao menos uma vaga com a matrícula.</div>'; return; }
+
+  for(var i=0;i<slotsPreenchidos.length;i++){
+    var s = slotsPreenchidos[i];
+    var jaExiste = state.policiais.find(function(p){ return p.matricula===s.matricula; });
+    if(!jaExiste){
+      if(!s.nome || !s.nome.trim()){
+        errBox.innerHTML='<div class="field-error">Informe o nome para a matrícula '+escapeHtml(s.matricula)+' (não cadastrada).</div>';
+        return;
+      }
+      state.policiais.push({matricula: s.matricula, nome: s.nome.trim(), telefone: s.telefone||''});
+    } else if(s.telefone && s.telefone !== jaExiste.telefone){
+      jaExiste.telefone = s.telefone;
+    }
+  }
+  await persistPoliciais();
+
+  var horarioObj = state.horarios.find(function(h){ return h.id===state.selHorario; });
+  var matriculasDetalhe = slotsPreenchidos.map(function(s){
+    var p = state.policiais.find(function(x){ return x.matricula===s.matricula; });
+    return {matricula: s.matricula, nome: p ? p.nome : (s.nome||''), telefone: s.telefone||''};
+  });
+
+  var registro = {
+    id: uid(),
+    usuario: state.user.usuario,
+    departamento: state.user.departamento,
+    delegacia: state.selDelegacia,
+    horario: horarioObj ? horarioObj.horario : '',
+    matriculas: matriculasDetalhe,
+    data: state.dataLancamento,
+    horaLancamento: nowTimeBR(),
+    criadoEm: nowISO()
+  };
+  state.lancamentos.unshift(registro);
+  await persistLancamentos();
+
+  state.selDelegacia = '';
+  state.selHorario = '';
+  state.vagaSlots = [];
+  state.dataLancamento = todayISO();
+  showToast('Lançamento salvo.');
+  renderMain();
+}
+
+// ---------- Lançamentos (list, dpm own dept / admin all) ----------
+function renderLancamentosList(main, departamentoFiltro){
+  var registros = departamentoFiltro
+    ? state.lancamentos.filter(function(r){ return r.departamento===departamentoFiltro; })
+    : state.lancamentos;
+
+  main.innerHTML =
+    '<div class="section-head">'+
+      '<h1>'+(departamentoFiltro ? 'Lançamentos do departamento' : 'Todos os lançamentos') +'</h1>'+
+      '<p>'+(departamentoFiltro ? ('Registros lançados pelo departamento '+departamentoFiltro+'.') : 'Registros de todos os departamentos.')+'</p>'+
+    '</div>'+
+    (registros.length===0
+      ? '<div class="empty-note">Nenhum lançamento registrado ainda.</div>'
+      : '<div class="tbl-wrap"><table><thead><tr>'+
+          (departamentoFiltro ? '' : '<th>Departamento</th>')+
+          '<th>Delegacia</th><th>Horário</th><th>Matrículas</th><th>Data</th><th>Lançado por</th><th>Hora do lançamento</th>'+
+        '</tr></thead><tbody>'+
+        registros.map(function(r){
+          return '<tr>'+
+            (departamentoFiltro ? '' : '<td>'+escapeHtml(r.departamento)+'</td>')+
+            '<td>'+escapeHtml(r.delegacia)+'</td>'+
+            '<td class="mono">'+escapeHtml(r.horario)+'</td>'+
+            '<td>'+r.matriculas.map(function(m){ return escapeHtml(m.nome||'?')+' <span class="mono" style="color:var(--ink-mute);">'+escapeHtml(m.matricula)+(m.telefone?(' · '+escapeHtml(m.telefone)):'')+'</span>'; }).join('<br>')+'</td>'+
+            '<td>'+fmtDateBR(r.data)+'</td>'+
+            '<td>'+escapeHtml(r.usuario)+'</td>'+
+            '<td class="mono">'+escapeHtml(r.horaLancamento)+'</td>'+
+          '</tr>';
+        }).join('')+
+        '</tbody></table></div>');
+}
+
+// ---------- Admin: horários ----------
+function renderHorariosAdmin(main){
+  var todasDelegacias = delegaciasForCurrentUser();
+  var horariosVisiveis = isGlobalAdmin()
+    ? state.horarios
+    : state.horarios.filter(function(h){ return DELEGACIA_TO_DEPTO[h.delegacia]===state.user.departamento; });
+
+  main.innerHTML =
+    '<div class="section-head">'+
+      '<h1>'+(isGlobalAdmin() ? 'Horários por delegacia' : ('Horários — departamento ' + state.user.departamento))+'</h1>'+
+      '<p>Cadastre os horários predefinidos que cada delegacia poderá usar nos lançamentos.'+
+        (isGlobalAdmin() ? '' : ' Você só pode gerenciar as delegacias do seu departamento.')+'</p>'+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Cadastrar horário</h3>'+
+      '<div class="inline-form">'+
+        '<div class="field-mini" style="min-width:220px;">'+
+          '<label>Delegacia</label>'+
+          '<select id="new-h-delegacia"><option value="">Selecionar</option>'+
+            todasDelegacias.map(function(d){ return '<option value="'+escapeHtml(d)+'">'+escapeHtml(d)+'</option>'; }).join('')+
+          '</select>'+
+        '</div>'+
+        '<div class="field-mini">'+
+          '<label>Horário (ex.: 08:00 às 18:00)</label>'+
+          '<input id="new-h-horario" placeholder="08:00 às 18:00" />'+
+        '</div>'+
+        '<div class="field-mini" style="max-width:110px;">'+
+          '<label>Vagas</label>'+
+          '<input id="new-h-vagas" type="number" min="1" value="1" />'+
+        '</div>'+
+        '<button class="btn-sm ok" id="btn-add-horario" style="height:36px;">Adicionar</button>'+
+      '</div>'+
+      '<div id="horario-form-error"></div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Horários cadastrados ('+horariosVisiveis.length+')</h3>'+
+      (horariosVisiveis.length===0 ? '<div class="empty-note">Nenhum horário cadastrado ainda.</div>' :
+      '<div class="tbl-wrap"><table><thead><tr><th>Delegacia</th><th>Horário</th><th>Vagas</th><th>Situação</th><th></th></tr></thead><tbody>'+
+        horariosVisiveis.map(function(h){
+          return '<tr>'+
+            '<td>'+escapeHtml(h.delegacia)+'</td>'+
+            '<td class="mono">'+escapeHtml(h.horario)+'</td>'+
+            '<td style="white-space:nowrap;"><input type="number" min="1" class="btn-sm" style="width:56px;" value="'+(h.vagas||1)+'" data-vagas="'+h.id+'" /></td>'+
+            '<td><span class="status-pill '+(h.ativo?'on':'off')+'">'+(h.ativo?'Disponível':'Indisponível')+'</span></td>'+
+            '<td style="white-space:nowrap;">'+
+              '<button class="btn-sm" data-toggle="'+h.id+'">'+(h.ativo?'Desativar':'Ativar')+'</button> '+
+              '<button class="btn-sm danger" data-del="'+h.id+'">Excluir</button>'+
+            '</td>'+
+          '</tr>';
+        }).join('')+
+      '</tbody></table></div>')+
+    '</div>';
+
+  document.getElementById('btn-add-horario').addEventListener('click', async function(){
+    var del = document.getElementById('new-h-delegacia').value;
+    var hor = document.getElementById('new-h-horario').value.trim();
+    var vagas = parseInt(document.getElementById('new-h-vagas').value, 10) || 1;
+    var err = document.getElementById('horario-form-error');
+    err.innerHTML='';
+    if(!del){ err.innerHTML='<div class="field-error">Selecione a delegacia.</div>'; return; }
+    if(!hor){ err.innerHTML='<div class="field-error">Informe o horário.</div>'; return; }
+    state.horarios.push({id: uid(), delegacia: del, horario: hor, ativo: true, vagas: Math.max(1,vagas)});
+    await persistHorarios();
+    showToast('Horário cadastrado.');
+    renderMain();
+  });
+
+  Array.prototype.forEach.call(main.querySelectorAll('[data-vagas]'), function(inp){
+    inp.addEventListener('change', async function(){
+      var id = inp.getAttribute('data-vagas');
+      var h = state.horarios.find(function(x){ return x.id===id; });
+      var novoValor = Math.max(1, parseInt(inp.value,10) || 1);
+      if(h){ h.vagas = novoValor; await persistHorarios(); showToast('Vagas atualizadas.'); }
+    });
+  });
+
+  Array.prototype.forEach.call(main.querySelectorAll('[data-toggle]'), function(btn){
+    btn.addEventListener('click', async function(){
+      var id = btn.getAttribute('data-toggle');
+      var h = state.horarios.find(function(x){ return x.id===id; });
+      if(h){ h.ativo = !h.ativo; await persistHorarios(); renderMain(); }
+    });
+  });
+  Array.prototype.forEach.call(main.querySelectorAll('[data-del]'), function(btn){
+    btn.addEventListener('click', async function(){
+      var id = btn.getAttribute('data-del');
+      if(!window.confirm('Excluir este horário?')) return;
+      state.horarios = state.horarios.filter(function(x){ return x.id!==id; });
+      await persistHorarios();
+      renderMain();
+    });
+  });
+}
+
+// ---------- Admin: policiais ----------
+function renderPoliciaisAdmin(main){
+  main.innerHTML =
+    '<div class="section-head">'+
+      '<h1>Cadastro de policiais</h1>'+
+      '<p>Matrículas disponíveis para busca nos lançamentos.</p>'+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Cadastrar policial</h3>'+
+      '<div class="inline-form">'+
+        '<div class="field-mini"><label>Matrícula</label><input id="new-p-matricula" placeholder="123456" /></div>'+
+        '<div class="field-mini" style="min-width:200px;"><label>Nome</label><input id="new-p-nome" placeholder="Nome completo" /></div>'+
+        '<div class="field-mini"><label>Telefone</label><input id="new-p-telefone" placeholder="(00) 00000-0000" /></div>'+
+        '<button class="btn-sm ok" id="btn-add-policial" style="height:36px;">Adicionar</button>'+
+      '</div>'+
+      '<div id="policial-form-error"></div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Policiais cadastrados ('+state.policiais.length+')</h3>'+
+      (state.policiais.length===0 ? '<div class="empty-note">Nenhum policial cadastrado ainda.</div>' :
+      '<div class="tbl-wrap"><table><thead><tr><th>Matrícula</th><th>Nome</th><th>Telefone</th><th></th></tr></thead><tbody>'+
+        state.policiais.map(function(p){
+          return '<tr><td class="mono">'+escapeHtml(p.matricula)+'</td><td>'+escapeHtml(p.nome)+'</td><td class="mono">'+escapeHtml(p.telefone||'—')+'</td>'+
+                 '<td><button class="btn-sm danger" data-delp="'+escapeHtml(p.matricula)+'">Excluir</button></td></tr>';
+        }).join('')+
+      '</tbody></table></div>')+
+    '</div>';
+
+  document.getElementById('btn-add-policial').addEventListener('click', async function(){
+    var mat = document.getElementById('new-p-matricula').value.trim();
+    var nome = document.getElementById('new-p-nome').value.trim();
+    var telefone = document.getElementById('new-p-telefone').value.trim();
+    var err = document.getElementById('policial-form-error');
+    err.innerHTML='';
+    if(!mat){ err.innerHTML='<div class="field-error">Informe a matrícula.</div>'; return; }
+    if(!nome){ err.innerHTML='<div class="field-error">Informe o nome.</div>'; return; }
+    if(state.policiais.find(function(p){ return p.matricula===mat; })){
+      err.innerHTML='<div class="field-error">Matrícula já cadastrada.</div>'; return;
+    }
+    state.policiais.push({matricula: mat, nome: nome, telefone: telefone});
+    await persistPoliciais();
+    showToast('Policial cadastrado.');
+    renderMain();
+  });
+
+  Array.prototype.forEach.call(main.querySelectorAll('[data-delp]'), function(btn){
+    btn.addEventListener('click', async function(){
+      var mat = btn.getAttribute('data-delp');
+      if(!window.confirm('Excluir esta matrícula?')) return;
+      state.policiais = state.policiais.filter(function(p){ return p.matricula!==mat; });
+      await persistPoliciais();
+      renderMain();
+    });
+  });
+}
+
+// ---------- Admin: usuários ----------
+function renderUsuariosAdmin(main){
+  var meuDepto = state.user.departamento;
+  var usersVisiveis = isGlobalAdmin() ? state.users : state.users.filter(function(u){ return u.departamento===meuDepto; });
+
+  var formHtml;
+  if(isGlobalAdmin()){
+    formHtml =
+      '<div class="inline-form">'+
+        '<div class="field-mini"><label>Usuário</label><input id="new-u-usuario" placeholder="usuario.login" /></div>'+
+        '<div class="field-mini"><label>Senha</label><input id="new-u-senha" placeholder="senha" /></div>'+
+        '<div class="field-mini"><label>Perfil</label>'+
+          '<select id="new-u-role">'+
+            '<option value="departamento">Focal do departamento</option>'+
+            '<option value="admin_departamento">Administrador do departamento</option>'+
+            '<option value="admin">Administrador geral</option>'+
+          '</select>'+
+        '</div>'+
+        '<div class="field-mini" id="new-u-dep-wrap"><label>Departamento</label>'+
+          '<select id="new-u-departamento">'+DEPARTAMENTOS.map(function(d){ return '<option value="'+escapeHtml(d)+'">'+escapeHtml(d)+'</option>'; }).join('')+'</select>'+
+        '</div>'+
+        '<button class="btn-sm ok" id="btn-add-usuario" style="height:36px;">Adicionar</button>'+
+      '</div>';
+  } else {
+    formHtml =
+      '<div class="inline-form">'+
+        '<div class="field-mini"><label>Usuário</label><input id="new-u-usuario" placeholder="usuario.login" /></div>'+
+        '<div class="field-mini"><label>Senha</label><input id="new-u-senha" placeholder="senha" /></div>'+
+        '<div class="field-mini"><label>Departamento</label><input value="'+escapeHtml(meuDepto)+'" disabled /></div>'+
+        '<button class="btn-sm ok" id="btn-add-usuario" style="height:36px;">Adicionar</button>'+
+      '</div>'+
+      '<p style="font-size:12px;color:var(--ink-mute);margin-top:10px;">Novos usuários criados aqui são focais do departamento '+escapeHtml(meuDepto)+'.</p>';
+  }
+
+  main.innerHTML =
+    '<div class="section-head">'+
+      '<h1>'+(isGlobalAdmin() ? 'Usuários do sistema' : ('Usuários — departamento ' + meuDepto))+'</h1>'+
+      '<p>Cada usuário de departamento enxerga apenas a escala do seu próprio departamento.</p>'+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Cadastrar usuário</h3>'+
+      formHtml+
+      '<div id="usuario-form-error"></div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<h3>Usuários cadastrados ('+usersVisiveis.length+')</h3>'+
+      '<div class="tbl-wrap"><table><thead><tr><th>Usuário</th><th>Perfil</th><th>Departamento</th><th></th></tr></thead><tbody>'+
+        usersVisiveis.map(function(u){
+          var perfilLabel = u.role==='admin' ? 'Administrador geral' : u.role==='admin_departamento' ? 'Administrador do departamento' : 'Focal do departamento';
+          return '<tr><td class="mono">'+escapeHtml(u.usuario)+'</td>'+
+                 '<td>'+perfilLabel+'</td>'+
+                 '<td>'+escapeHtml(u.departamento||'—')+'</td>'+
+                 '<td><button class="btn-sm danger" data-delu="'+u.id+'">Excluir</button></td></tr>';
+        }).join('')+
+      '</tbody></table></div>'+
+    '</div>';
+
+  if(isGlobalAdmin()){
+    var roleSel = document.getElementById('new-u-role');
+    var depWrap = document.getElementById('new-u-dep-wrap');
+    roleSel.addEventListener('change', function(){
+      depWrap.style.display = roleSel.value==='admin' ? 'none' : '';
+    });
+  }
+
+  document.getElementById('btn-add-usuario').addEventListener('click', async function(){
+    var usuario = document.getElementById('new-u-usuario').value.trim();
+    var senha = document.getElementById('new-u-senha').value;
+    var role = isGlobalAdmin() ? document.getElementById('new-u-role').value : 'departamento';
+    var departamento = isGlobalAdmin()
+      ? (role==='admin' ? null : document.getElementById('new-u-departamento').value)
+      : meuDepto;
+    var err = document.getElementById('usuario-form-error');
+    err.innerHTML='';
+    if(!usuario){ err.innerHTML='<div class="field-error">Informe o usuário.</div>'; return; }
+    if(!senha){ err.innerHTML='<div class="field-error">Informe a senha.</div>'; return; }
+    if(state.users.find(function(u){ return u.usuario.toLowerCase()===usuario.toLowerCase(); })){
+      err.innerHTML='<div class="field-error">Usuário já existe.</div>'; return;
+    }
+    state.users.push({id: uid(), usuario: usuario, senha: senha, departamento: departamento, role: role});
+    await persistUsers();
+    showToast('Usuário cadastrado.');
+    renderMain();
+  });
+
+  Array.prototype.forEach.call(main.querySelectorAll('[data-delu]'), function(btn){
+    btn.addEventListener('click', async function(){
+      var id = btn.getAttribute('data-delu');
+      if(id === state.user.id){ showToast('Você não pode excluir seu próprio usuário.'); return; }
+      var alvo = state.users.find(function(u){ return u.id===id; });
+      if(alvo && !isGlobalAdmin() && alvo.departamento!==meuDepto){ showToast('Você só pode excluir usuários do seu departamento.'); return; }
+      if(!window.confirm('Excluir este usuário?')) return;
+      state.users = state.users.filter(function(u){ return u.id!==id; });
+      await persistUsers();
+      renderMain();
+    });
+  });
+}
+
+loadAll();
+if(!hasSheetsBackend() && !hasCloudStorage()){
+  var stWarn = document.getElementById('storage-warning');
+  if(stWarn) stWarn.style.display = 'block';
+}
+if(hasSheetsBackend()){
+  var stWarn2 = document.getElementById('storage-warning');
+  if(stWarn2){
+    stWarn2.style.background = '#E6F0EA';
+    stWarn2.style.color = '#2E6B4F';
+    stWarn2.textContent = 'Conectado à planilha do Google Sheets como backend.';
+    stWarn2.style.display = 'block';
+  }
+}
+
+})();
+</script>
+</body>
+</html>
