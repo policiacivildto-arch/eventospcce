@@ -1,0 +1,8 @@
+node_modules
+dist
+.env.local
+*.log
+dist-teste
+# dados pessoais dos servidores ficam fora do repositório
+dados/
+*.csv
