@@ -1,0 +1,4 @@
+# Alternativa ao GitHub Pages: ligue o repositório no Netlify e ele publica sozinho a cada mudança.
+[build]
+  command = "npm install && npm run build"
+  publish = "dist"
