@@ -355,7 +355,7 @@ async function iniciar() {
   A.perfil = perfil;
   $("#vLogin").hidden = true; $("#vApp").hidden = false;
   $("#uNome").textContent = perfil.nome;
-  $("#uPapel").textContent = perfil.dto ? "DTO · acesso total" : perfil.focal_de.length ? "Focal · " + perfil.focal_de.map(d => d.sigla).join(", ") : perfil.cargo + " · " + (perfil.departamento || "");
+  $("#uPapel").textContent = perfil.dto ? "DTO · acesso total" : perfil.focal_de.length ? "Focal · " + perfil.focal_de.map(d => d.sigla).join(", ") : (perfil.chefe_de || []).length ? "Chefe · " + perfil.chefe_de.map(d => d.nome.replace(/^Delegacia de Polícia Civil d[aeo] /, "DP ")).join(", ") : perfil.cargo + " · " + (perfil.departamento || "");
   if (perfil.dto) { const { data } = await sb.from("departamentos").select("id,sigla").order("sigla"); A.deps = data || []; }
   else A.deps = perfil.focal_de;
   await carregarEventos();
@@ -372,9 +372,11 @@ async function carregarEventos() {
 $("#sEv").addEventListener("change", e => { A.ev = A.eventos.find(x => x.id === e.target.value) || null; guardar("pe-ev", A.ev ? A.ev.id : ""); abrir(A.tab); });
 
 function montarAbas() {
-  const p = A.perfil, gestor = p.dto || p.focal_de.length > 0;
+  const p = A.perfil, gestor = p.dto || p.focal_de.length > 0, chefe = (p.chefe_de || []).length > 0;
   const abas = [];
-  if (gestor) abas.push(["pedido", "Necessidade de efetivo"], ["escala", "Escala"], ["resumo", "Resumo"], ["relatorio", "Relatório"], ["cobertura", "Cobertura"]);
+  if (gestor) abas.push(["pedido", "Necessidade de efetivo"], ["escala", "Escala"]);
+  if (gestor || chefe) abas.push(["frequencia", "Frequência"]);
+  if (gestor) abas.push(["resumo", "Resumo"], ["relatorio", "Relatório"], ["cobertura", "Cobertura"]);
   if (p.dto) abas.push(["versoes", "Versões e aporte"], ["evento", "Evento"]);
   abas.push(["minhas", "Minhas escalas"]);
   $("#tabs").innerHTML = abas.map(([k, t]) => `<button role="tab" data-tab="${k}" aria-selected="false">${t}</button>`).join("");
@@ -386,7 +388,7 @@ function abrir(tab) {
   document.querySelectorAll("#tabs [data-tab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
   const m = $("#main");
   if (!A.ev && tab !== "evento" && tab !== "minhas") { m.innerHTML = `<div class="empty">Nenhum evento criado ainda.${A.perfil.dto ? " Crie o primeiro na aba Evento." : ""}</div>`; return; }
-  ({ escala: telaEscala, pedido: telaPedido, resumo: telaResumo, cobertura: telaCobertura, relatorio: telaRelatorio, versoes: telaVersoes, evento: telaEvento, minhas: telaMinhas })[tab]();
+  ({ escala: telaEscala, pedido: telaPedido, resumo: telaResumo, cobertura: telaCobertura, relatorio: telaRelatorio, frequencia: telaFrequencia, versoes: telaVersoes, evento: telaEvento, minhas: telaMinhas })[tab]();
 }
 function seletorDep(id, atual) {
   if (A.deps.length <= 1) return "";
@@ -408,8 +410,12 @@ async function telaEscala() {
       ${seletorDep("sDepEsc", A.depEsc)}
       <label class="toggle"><input type="checkbox" id="cOutros" ${E.outros ? "checked" : ""}> Buscar servidor de outro departamento</label>
       <button class="btn small" id="bCsv">Baixar CSV</button>
+      <button class="btn small" id="bModelo" title="Planilha com as vagas para preencher a matrícula">Baixar modelo CSV</button>
+      <button class="btn small" id="bEnviarCsv" ${A.ev.escala_aberta || A.perfil.dto ? "" : "disabled"} title="Enviar o modelo preenchido">Enviar CSV preenchido</button>
+      <input type="file" id="fCsv" accept=".csv,text/csv" hidden>
       <button class="btn small" id="bWord">Escala em Word</button>${A.perfil.dto ? `<button class="btn small" id="bWordTodos">Word: todos os departamentos</button>` : ""}
     </div>
+    <div id="csvImp"></div>
     <div class="esc">
       <div>
         <input type="search" id="iFiltro" placeholder="Filtrar delegacia" value="${esc(E.filtro)}" aria-label="Filtrar delegacia" style="margin-bottom:8px">
@@ -423,6 +429,9 @@ async function telaEscala() {
   $("#iFiltro").addEventListener("input", e => { E.filtro = e.target.value; listaDelegacias(); });
   $("#cAbertas").addEventListener("change", e => { E.soAbertas = e.target.checked; listaDelegacias(); });
   $("#bCsv").addEventListener("click", baixarCsv);
+  $("#bModelo").addEventListener("click", baixarModelo);
+  $("#bEnviarCsv").addEventListener("click", () => $("#fCsv").click());
+  $("#fCsv").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) lerCsvEscala(f); });
   $("#bWord").addEventListener("click", () => gerarWord(false));
   if ($("#bWordTodos")) $("#bWordTodos").addEventListener("click", () => gerarWord(true));
   try {
@@ -676,6 +685,149 @@ function baixarCsv() {
   a.download = "escala-" + ((A.deps.find(d => d.id === A.depEsc) || {}).sigla || "") + ".csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+/* ---------- modelo CSV da escala: baixa, preenche a matrícula e envia de volta ---------- */
+const CSV_CAB = ["ID DA VAGA", "DATA", "DELEGACIA", "VAGA", "CARGO", "SERVIÇO", "ENTRADA", "SAÍDA", "MATRÍCULA", "NOME (só conferência)", "SEM SERVIDOR (SIM)", "TELEFONE"];
+function baixarModelo() {
+  const vs = E.vagas.filter(v => v.ativa);
+  if (!vs.length) { toast("Nenhuma vaga neste departamento ainda.", true); return; }
+  const linhas = vs.map(v => { const a = partes(v.inicio), b = partes(v.fim); const t = v.matricula ? E.tel.get(v.matricula) : null;
+    return [v.vaga_id, dataBR(v.data), v.delegacia_nome, v.vaga, v.cargo, v.servico, a.dd + " " + a.h, b.dd + " " + b.h, v.matricula || "", v.servidor || "", v.sem_servidor ? "SIM" : "", t ? fmtTel(t) : ""]; });
+  const csv = "﻿" + [CSV_CAB, ...linhas].map(l => l.map(x => `"${String(x ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = "modelo-escala-" + ((A.deps.find(d => d.id === A.depEsc) || {}).sigla || "").replace(/\s+/g, "-").toLowerCase() + ".csv";
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast("Modelo baixado: preencha a coluna MATRÍCULA (ou SIM em SEM SERVIDOR) e envie de volta.");
+}
+/* texto CSV -> linhas (aceita ; , ou tab, aspas e quebras dentro de aspas) */
+function lerLinhasCsv(txt) {
+  txt = txt.replace(/^﻿/, "");
+  const prim = txt.split(/\r?\n/)[0] || "";
+  const sep = [";", ",", "\t"].map(s => [s, prim.split(s).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const out = []; let lin = [], cel = "", asp = false;
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i];
+    if (asp) { if (c === '"') { if (txt[i + 1] === '"') { cel += '"'; i++; } else asp = false; } else cel += c; }
+    else if (c === '"') asp = true;
+    else if (c === sep) { lin.push(cel); cel = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && txt[i + 1] === "\n") i++; lin.push(cel); out.push(lin); lin = []; cel = ""; }
+    else cel += c;
+  }
+  if (cel !== "" || lin.length) { lin.push(cel); out.push(lin); }
+  return out.filter(l => l.some(x => x.trim() !== ""));
+}
+async function lerCsvEscala(arq) {
+  const box = $("#csvImp");
+  box.innerHTML = `<div class="panel" style="margin-bottom:14px"><p class="muted">Lendo ${esc(arq.name)}…</p></div>`;
+  try {
+    const bytes = new Uint8Array(await arq.arrayBuffer());
+    let txt = new TextDecoder("utf-8").decode(bytes);
+    if (txt.includes("�")) txt = new TextDecoder("windows-1252").decode(bytes);   /* salvo pelo Excel */
+    const rows = lerLinhasCsv(txt);
+    if (rows.length < 2) throw new Error("O arquivo está vazio.");
+    const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+    const cab = rows[0].map(norm);
+    const col = f => cab.findIndex(f);
+    const cId = col(h => h.startsWith("id")), cMat = col(h => h.startsWith("matricula")), cSem = col(h => h.startsWith("sem servidor")), cTel = col(h => h.startsWith("telefone"));
+    if (cId < 0 || cMat < 0) throw new Error("Use o modelo do botão “Baixar modelo CSV”: o arquivo precisa das colunas ID DA VAGA e MATRÍCULA.");
+
+    const porId = new Map(E.vagas.map(v => [v.vaga_id, v]));
+    const vistos = new Set(), plano = [], erros = []; let iguais = 0;
+    rows.slice(1).forEach((r, k) => {
+      const n = k + 2, idTxt = String(r[cId] || "").trim();
+      if (!idTxt) return;
+      const id = Number(idTxt.replace(/\D/g, "")), v = porId.get(id);
+      const ref = v ? `${v.delegacia_nome} · ${dataBR(v.data).slice(0, 5)} · ${v.vaga}` : "";
+      if (!v) { erros.push({ n, ref: "ID " + idTxt, msg: "vaga não encontrada neste departamento e evento" }); return; }
+      if (vistos.has(id)) { erros.push({ n, ref, msg: "vaga repetida no arquivo (vale a primeira linha)" }); return; }
+      vistos.add(id);
+      const mat = String(r[cMat] || "").toUpperCase().replace(/[^0-9X]/g, "");
+      const sem = cSem >= 0 && /^(sim|s|x|1)$/i.test(String(r[cSem] || "").trim());
+      const tel = cTel >= 0 ? String(r[cTel] || "").replace(/\D/g, "") : "";
+      if (!v.ativa) { if (mat || sem) erros.push({ n, ref, msg: "esta vaga saiu da necessidade de efetivo" }); return; }
+      if (mat && sem) { erros.push({ n, ref, msg: "preencha a matrícula OU “SIM” em sem servidor, não os dois" }); return; }
+      if (tel && (tel.length < 10 || tel.length > 11)) { erros.push({ n, ref, msg: "telefone precisa do DDD, ex.: (85) 99999-9999 (a escala da linha ainda é aplicada)" }); }
+      const antes = v.matricula ? "m:" + v.matricula : v.sem_servidor ? "sem" : "vazio", depois = mat ? "m:" + mat : sem ? "sem" : "vazio";
+      const p = { n, v, ref, mat, sem, acao: antes === depois ? null : mat ? "escalar" : sem ? "sem" : "limpar",
+                  tel: mat && tel.length >= 10 && tel.length <= 11 && tel !== String(E.tel.get(mat) || "").replace(/\D/g, "") ? tel : null };
+      if (!p.acao && !p.tel) { iguais++; return; }
+      plano.push(p);
+    });
+
+    /* confere as matrículas novas (nome e cargo) antes de aplicar */
+    const novas = [...new Set(plano.filter(p => p.acao === "escalar").map(p => p.mat))], cad = new Map();
+    for (let i = 0; i < novas.length; i += 8) {
+      box.innerHTML = `<div class="panel" style="margin-bottom:14px"><p class="muted">Conferindo matrículas… ${i} de ${novas.length}</p></div>`;
+      await Promise.all(novas.slice(i, i + 8).map(async m => {
+        const { data } = await sb.rpc("buscar_servidores", { p_texto: m, p_cargo: null, p_dep: A.depEsc, p_outros: true });
+        const s = (data || []).find(x => x.matricula === m); if (s) cad.set(m, s);
+      }));
+    }
+    const final = [];
+    plano.forEach(p => {
+      if (p.acao === "escalar") {
+        const s = cad.get(p.mat);
+        if (!s) { erros.push({ n: p.n, ref: p.ref, msg: `matrícula ${fmtMat(p.mat)} não encontrada ou inativa` }); return; }
+        if (s.cargo !== p.v.cargo) { erros.push({ n: p.n, ref: p.ref, msg: `${s.nome} é ${s.cargo}, mas a vaga é de ${p.v.cargo}` }); return; }
+        p.s = s;
+      }
+      final.push(p);
+    });
+    erros.sort((a, b) => a.n - b.n);
+    mostrarPlanoCsv(arq.name, final, erros, iguais);
+  } catch (e) { box.innerHTML = `<div class="panel" style="margin-bottom:14px"><p class="err">${esc(e.message || String(e))}</p><button class="btn small" id="bCsvFechar" style="margin-top:8px">Fechar</button></div>`; $("#bCsvFechar").onclick = () => box.innerHTML = ""; }
+}
+function descVaga(v) { return v.matricula ? `${esc(v.servidor || "")} <span class="hint">${esc(fmtMat(v.matricula))}</span>` : v.sem_servidor ? "SEM SERVIDOR" : `<span class="muted">em aberto</span>`; }
+function mostrarPlanoCsv(nome, plano, erros, iguais) {
+  const box = $("#csvImp"), nEsc = plano.filter(p => p.acao).length, nTel = plano.filter(p => p.tel).length;
+  const depois = p => p.acao === "escalar" ? `<b>${esc(p.s.nome)}</b> <span class="hint">${esc(fmtMat(p.mat))}${p.s.departamento && p.s.departamento !== (A.deps.find(d => d.id === A.depEsc) || {}).sigla ? " · " + esc(p.s.departamento) : ""}</span>`
+    : p.acao === "sem" ? "<b>SEM SERVIDOR</b>" : p.acao === "limpar" ? `<b style="color:var(--danger)">limpar (fica em aberto)</b>` : `<span class="muted">sem mudança</span>`;
+  box.innerHTML = `<div class="panel" style="margin-bottom:14px">
+    <div class="dhead"><h3>Conferir antes de aplicar · ${esc(nome)}</h3></div>
+    <p style="margin:6px 0 10px">${nEsc} vaga(s) mudam${nTel ? ` · ${nTel} telefone(s) novo(s)` : ""} · ${iguais} linha(s) sem mudança${erros.length ? ` · <b style="color:var(--danger)">${erros.length} linha(s) com problema (não serão aplicadas)</b>` : ""}.
+      <span class="hint">Só as vagas do arquivo são alteradas; as que não estão nele ficam como estão. Matrícula apagada no arquivo limpa a vaga.</span></p>
+    ${erros.length ? `<details open style="margin-bottom:10px"><summary><b>Problemas</b></summary><div style="max-height:220px;overflow:auto"><table><thead><tr><th>Linha</th><th>Vaga</th><th>Problema</th></tr></thead><tbody>${erros.map(e => `<tr><td>${e.n}</td><td>${esc(e.ref)}</td><td class="err">${esc(e.msg)}</td></tr>`).join("")}</tbody></table></div></details>` : ""}
+    ${plano.length ? `<div style="max-height:340px;overflow:auto"><table><thead><tr><th>Linha</th><th>Delegacia · dia · vaga</th><th>Cargo</th><th>Hoje</th><th>Fica</th>${nTel ? "<th>Telefone</th>" : ""}</tr></thead><tbody>${plano.map(p => `<tr><td>${p.n}</td><td>${esc(p.ref)}</td><td>${esc(p.v.cargo)}</td><td>${descVaga(p.v)}</td><td>${depois(p)}</td>${nTel ? `<td>${p.tel ? esc(fmtTel(p.tel)) : ""}</td>` : ""}</tr>`).join("")}</tbody></table></div>` : `<p class="muted">Nada a aplicar.</p>`}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px">
+      <button class="btn primary" id="bCsvAplicar" ${plano.length ? "" : "disabled"}>Aplicar ${plano.length} alteração(ões)</button>
+      <button class="btn" id="bCsvFechar">Cancelar</button>
+      <span class="hint" id="csvProg"></span>
+    </div></div>`;
+  $("#bCsvFechar").onclick = () => box.innerHTML = "";
+  $("#bCsvAplicar").onclick = () => aplicarCsv(plano, erros);
+  box.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+async function aplicarCsv(plano, errosAntes) {
+  const bt = $("#bCsvAplicar"), prog = $("#csvProg"); bt.disabled = true; $("#bCsvFechar").disabled = true;
+  const total = plano.length; let feitos = 0; const falhas = [];
+  const passo = () => prog.textContent = `Aplicando… ${feitos} de ${total}`;
+  const escalar = async (p, mat, sem) => { const { error } = await sb.rpc("escalar", { p_vaga: p.v.vaga_id, p_matricula: mat, p_sem_servidor: sem }); return error ? await msgErro(error) : null; };
+  /* 1º libera (limpar / sem servidor), 2º escala, 3º tenta de novo quem bateu horário (troca entre vagas) */
+  for (const p of plano.filter(p => p.acao === "limpar" || p.acao === "sem")) { const e = await escalar(p, null, p.acao === "sem"); if (e) falhas.push({ p, msg: e }); feitos++; passo(); }
+  /* troca entre vagas: quem sai de uma vaga para outra do arquivo é liberado antes */
+  const alvos = new Set(plano.filter(p => p.acao === "escalar").map(p => p.mat));
+  for (const p of plano.filter(p => p.acao === "escalar" && p.v.matricula && alvos.has(p.v.matricula))) await escalar(p, null, false);
+  let pend = [];
+  for (const p of plano.filter(p => p.acao === "escalar")) { const e = await escalar(p, p.mat, false); if (e) pend.push({ p, msg: e }); else feitos++; passo(); }
+  for (const f of pend) { const e = await escalar(f.p, f.p.mat, false); if (e) falhas.push({ p: f.p, msg: e }); feitos++; passo(); }
+  for (const p of plano.filter(p => p.tel)) {
+    if (!p.acao) feitos++;
+    if (falhas.some(f => f.p === p)) continue;
+    const { error } = await sb.rpc("definir_telefone", { p_matricula: p.mat, p_telefone: p.tel });
+    if (error) falhas.push({ p, msg: "telefone: " + await msgErro(error) });
+    passo();
+  }
+  const ok = plano.filter(p => !falhas.some(f => f.p === p)).length;
+  await telaEscala();
+  const todasFalhas = [...falhas.map(f => ({ n: f.p.n, ref: f.p.ref, msg: f.msg })), ...errosAntes].sort((a, b) => a.n - b.n);
+  $("#csvImp").innerHTML = `<div class="panel" style="margin-bottom:14px">
+    <div class="dhead"><h3>CSV aplicado</h3></div>
+    <p style="margin:6px 0 10px"><b style="color:var(--ok)">${ok} alteração(ões) feitas.</b>${todasFalhas.length ? ` <b style="color:var(--danger)">${todasFalhas.length} linha(s) não aplicadas</b>: corrija no arquivo e envie de novo (as que já entraram ficam “sem mudança”).` : ""}</p>
+    ${todasFalhas.length ? `<div style="max-height:260px;overflow:auto"><table><thead><tr><th>Linha</th><th>Vaga</th><th>Motivo</th></tr></thead><tbody>${todasFalhas.map(e => `<tr><td>${e.n}</td><td>${esc(e.ref)}</td><td class="err">${esc(e.msg)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    <button class="btn small" id="bCsvFechar" style="margin-top:10px">Fechar</button></div>`;
+  $("#bCsvFechar").onclick = () => $("#csvImp").innerHTML = "";
+  toast(todasFalhas.length ? `${ok} aplicada(s), ${todasFalhas.length} com problema.` : `${ok} alteração(ões) aplicadas.`, !!todasFalhas.length && !ok);
+}
+
 /* ------------------------------ PEDIDO ------------------------------ */
 const P = { lista: [], cadastro: [], editando: null, situacao: null };
 async function telaPedido() {
@@ -814,6 +966,286 @@ function formPedido(d, bloqueado) {
   };
 }
 function lerEf(row) { const g = k => row.querySelector(`[data-k="${k}"]`).value; return { cargo: g("cargo"), qtd: parseInt(g("qtd")), servico: g("servico"), entrada: g("entrada"), saida: g("saida") }; }
+
+/* ------------------------------ FREQUÊNCIA E PAGAMENTO ------------------------------ */
+/* O chefe da delegacia marca, em cada vaga: presente, falta, substituído (quem cobriu recebe) ou horário diferente.
+   Depois fecha a frequência, baixa o relatório de pagamento em PDF, assina no gov.br e envia o PDF assinado. */
+const F = { dep: null, del: null, dia: null, vagas: [], freq: new Map(), fech: null, nomes: new Map(), chefeVaga: null };
+const SITF = [["presente", "Presente"], ["falta", "Falta"], ["substituido", "Substituído"], ["horario", "Horário diferente"]];
+const nomeSit = s => (SITF.find(x => x[0] === s) || [s, s])[1];
+const agoraLocal = () => { const d = new Date(Date.now() - 3 * 3600e3); return d.toISOString().slice(0, 16); };   /* Fortaleza, sem horário de verão */
+const tsLocal = v => v ? String(v).slice(0, 16) : "";
+
+async function telaFrequencia() {
+  const m = $("#main"), p = A.perfil, chefeDe = p.chefe_de || [];
+  const gestor = p.dto || p.focal_de.length > 0;
+  m.innerHTML = `<div class="bar"><h2>Frequência e pagamento</h2></div><p class="muted">Carregando…</p>`;
+  /* delegacias que a pessoa pode ver */
+  let delegs = chefeDe.map(d => ({ id: d.id, nome: d.nome, dep: d.departamento_id, sigla: d.sigla }));
+  if (gestor) {
+    F.dep = F.dep && A.deps.some(d => d.id === F.dep) ? F.dep : (A.deps[0] || {}).id;
+    const { data } = await sb.from("escala_vagas").select("delegacia_id,delegacia_nome,departamento_id,departamento").eq("evento_id", A.ev.id).eq("departamento_id", F.dep).eq("ativa", true);
+    const vist = new Map(); (data || []).forEach(r => { if (r.delegacia_id && !vist.has(r.delegacia_id)) vist.set(r.delegacia_id, { id: r.delegacia_id, nome: r.delegacia_nome, dep: r.departamento_id, sigla: r.departamento }); });
+    delegs = [...vist.values()].sort((a, b) => a.nome.localeCompare(b.nome));
+  }
+  if (!delegs.length) { m.innerHTML = `<div class="bar"><h2>Frequência e pagamento</h2>${gestor ? seletorDep("sDepFreq", F.dep) : ""}</div><div class="empty">Nenhuma delegacia com vagas neste evento${gestor ? " para este departamento" : ""}.</div>`; ligarDepFreq(); return; }
+  if (!delegs.some(d => d.id === F.del)) F.del = delegs[0].id;
+  const del = delegs.find(d => d.id === F.del);
+  m.innerHTML = `
+    <div class="bar"><h2>Frequência e pagamento</h2>${gestor ? seletorDep("sDepFreq", F.dep) : ""}
+      <label class="f" style="min-width:260px">Delegacia<select id="sDelFreq">${delegs.map(d => `<option value="${d.id}" ${d.id === F.del ? "selected" : ""}>${esc(d.nome)}</option>`).join("")}</select></label></div>
+    <section class="panel" id="fStatus" style="margin-bottom:14px"><p class="muted">Carregando…</p></section>
+    <section class="panel" id="fVagas"><p class="muted">Carregando…</p></section>
+    ${gestor ? `<section class="panel" id="fChefes" style="margin-top:14px"></section>` : ""}`;
+  ligarDepFreq();
+  $("#sDelFreq").onchange = e => { F.del = Number(e.target.value); F.dia = null; telaFrequencia(); };
+  await carregarFreq(del);
+  if (gestor) painelChefes(delegs);
+}
+function ligarDepFreq() { const s = $("#sDepFreq"); if (s) s.onchange = e => { F.dep = Number(e.target.value); F.del = null; F.dia = null; telaFrequencia(); }; }
+
+async function carregarFreq(del) {
+  try {
+    F.vagas = await todos(() => sb.from("escala_vagas").select("*").eq("evento_id", A.ev.id).eq("delegacia_id", del.id).eq("ativa", true).order("inicio").order("vaga"));
+    const ids = F.vagas.map(v => v.vaga_id); F.freq = new Map();
+    for (let i = 0; i < ids.length; i += 150) { const { data, error } = await sb.from("frequencia").select("*").in("vaga_id", ids.slice(i, i + 150)); if (error) throw error; (data || []).forEach(f => F.freq.set(f.vaga_id, f)); }
+    const { data: fe } = await sb.from("frequencia_fechamento").select("*").eq("evento_id", A.ev.id).eq("delegacia_id", del.id).maybeSingle();
+    F.fech = fe || null;
+    const subs = [...F.freq.values()].map(f => f.substituto).filter(Boolean);
+    F.nomes = new Map(); if (subs.length) { const { data } = await sb.from("servidores").select("matricula,nome").in("matricula", subs); (data || []).forEach(s => F.nomes.set(s.matricula, s.nome)); }
+  } catch (e) { $("#fVagas").innerHTML = `<p class="err">${esc(await msgErro(e))}</p>`; return; }
+  F.delAtual = del;
+  statusFreq(); vagasFreq();
+}
+
+function contFreq() {
+  const comNome = F.vagas.filter(v => v.matricula), reg = F.vagas.filter(v => F.freq.has(v.vaga_id));
+  const n = s => [...F.freq.values()].filter(f => f.situacao === s).length;
+  return { total: F.vagas.length, comNome: comNome.length, faltamReg: comNome.filter(v => !F.freq.has(v.vaga_id)).length, reg: reg.length, presente: n("presente"), falta: n("falta"), substituido: n("substituido"), horario: n("horario") };
+}
+
+function statusFreq() {
+  const el = $("#fStatus"), c = contFreq(), fe = F.fech, dto = A.perfil.dto;
+  el.innerHTML = `<div class="dhead" style="margin-bottom:8px"><h3>${esc(F.delAtual.nome)}</h3>
+      <span>${fe ? (fe.arquivo ? `<span class="chip ok">Fechada e assinada</span>` : `<span class="chip warn">Fechada · falta enviar o PDF assinado</span>`) : `<span class="chip">Aberta</span>`}</span></div>
+    <p class="hint">${c.reg} de ${c.total} vagas registradas · ${c.presente} presente · ${c.falta} falta · ${c.substituido} substituído · ${c.horario} horário diferente${c.faltamReg ? ` · <b style="color:var(--danger)">${c.faltamReg} com servidor sem registro</b>` : ""}</p>
+    <div class="row" style="margin-top:10px;gap:8px">
+      <button class="btn primary" id="fPdf" style="flex:0 0 auto">Relatório de pagamento (PDF)</button>
+      ${!fe ? `<button class="btn" id="fFechar" style="flex:0 0 auto" ${c.faltamReg ? "disabled title='Registre todas as vagas com servidor'" : ""}>Fechar frequência</button>` : ""}
+      ${fe ? `<label class="btn" style="flex:0 0 auto">Enviar PDF assinado<input type="file" id="fArq" accept="application/pdf,.pdf" hidden></label>` : ""}
+      ${fe && fe.arquivo ? `<button class="btn" id="fVer" style="flex:0 0 auto">Ver PDF assinado</button>` : ""}
+      ${fe && dto ? `<button class="btn danger" id="fReabrir" style="flex:0 0 auto">Reabrir frequência</button>` : ""}
+    </div>
+    <p class="hint" style="margin-top:10px">${fe ? `Fechada em ${new Date(fe.fechado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}. ` : ""}Como assinar: baixe o PDF, entre em <b>assinador.iti.br</b> com sua conta gov.br, assine e envie aqui o PDF assinado.${fe && fe.assinado_em ? ` Assinado enviado em ${new Date(fe.assinado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}.` : ""}</p>`;
+  $("#fPdf").onclick = pdfPagamento;
+  if ($("#fFechar")) $("#fFechar").onclick = async () => {
+    if (!confirm("Fechar a frequência de " + F.delAtual.nome + "? Depois disso só o DTO reabre.")) return;
+    const { error } = await sb.rpc("fechar_frequencia", { p_evento: A.ev.id, p_delegacia: F.delAtual.id });
+    if (error) return toast(await msgErro(error), true);
+    toast("Frequência fechada. Baixe o relatório, assine no gov.br e envie o PDF assinado."); carregarFreq(F.delAtual);
+  };
+  if ($("#fReabrir")) $("#fReabrir").onclick = async () => {
+    if (!confirm("Reabrir a frequência? O PDF assinado enviado deixa de valer.")) return;
+    const { error } = await sb.rpc("reabrir_frequencia", { p_evento: A.ev.id, p_delegacia: F.delAtual.id });
+    if (error) return toast(await msgErro(error), true); toast("Frequência reaberta."); carregarFreq(F.delAtual);
+  };
+  if ($("#fArq")) $("#fArq").onchange = e => enviarAssinado(e.target.files[0]);
+  if ($("#fVer")) $("#fVer").onclick = async () => {
+    const { data, error } = await sb.storage.from("relatorios").createSignedUrl(F.fech.arquivo, 600);
+    if (error) return toast(await msgErro(error), true); window.open(data.signedUrl, "_blank", "noopener");
+  };
+}
+
+async function enviarAssinado(arq) {
+  if (!arq) return;
+  if (arq.size > 10 * 1024 * 1024) return toast("O PDF passa de 10 MB.", true);
+  const bytes = new Uint8Array(await arq.arrayBuffer());
+  const txt = new TextDecoder("latin1").decode(bytes);
+  if (!txt.startsWith("%PDF")) return toast("O arquivo não é um PDF.", true);
+  if (!/\/ByteRange|\/Sig\b|adbe\.pkcs7|ETSI\.CAdES/.test(txt) && !confirm("Este PDF não parece ter assinatura digital. Enviar mesmo assim?")) return;
+  const caminho = A.ev.id + "/" + F.delAtual.id + "/relatorio-pagamento-assinado-" + Date.now() + ".pdf";
+  const { error } = await sb.storage.from("relatorios").upload(caminho, arq, { contentType: "application/pdf", upsert: false });
+  if (error) return toast(await msgErro(error), true);
+  const r = await sb.rpc("registrar_assinado", { p_evento: A.ev.id, p_delegacia: F.delAtual.id, p_arquivo: caminho });
+  if (r.error) return toast(await msgErro(r.error), true);
+  toast("PDF assinado guardado."); carregarFreq(F.delAtual);
+}
+
+function vagasFreq() {
+  const el = $("#fVagas");
+  if (!F.vagas.length) { el.innerHTML = `<div class="empty">Nenhuma vaga nesta delegacia.</div>`; return; }
+  const dias = [...new Set(F.vagas.map(v => v.data))].sort();
+  if (!dias.includes(F.dia)) F.dia = dias[0];
+  const pode = !F.fech || A.perfil.dto, agora = agoraLocal();
+  el.innerHTML = `<div class="days">${dias.map(d => { const vs = F.vagas.filter(v => v.data === d), sem = vs.filter(v => v.matricula && !F.freq.has(v.vaga_id)).length;
+      return `<button data-dia="${d}" aria-selected="${d === F.dia}"><b>${dataBR(d).slice(0, 5)} · ${diaBR(d).split(",")[0]}</b><span>${sem ? sem + " sem registro" : "registrado"}</span></button>`; }).join("")}</div>
+    <p class="hint" style="margin-bottom:10px">${pode ? "Marque a situação de cada vaga. Salva na hora. Substituído: quem cobriu recebe no lugar do escalado." : "Frequência fechada: só consulta."}</p>
+    <div id="fRows">${F.vagas.filter(v => v.data === F.dia).map(v => linhaFreq(v, pode, agora)).join("")}</div>`;
+  el.querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { F.dia = b.dataset.dia; vagasFreq(); });
+  el.querySelectorAll(".frow").forEach(r => ligarFreq(r));
+}
+
+function linhaFreq(v, pode, agora) {
+  const f = F.freq.get(v.vaga_id), a = partes(v.inicio), b = partes(v.fim), comecou = tsLocal(v.inicio) <= agora || A.perfil.dto;
+  const sit = f ? f.situacao : "";
+  const opc = SITF.filter(([k]) => v.matricula || k === "substituido");
+  const detalhe = !f ? "" : f.situacao === "substituido" ? `Coberto por <b>${esc(F.nomes.get(f.substituto) || f.substituto)}</b> (${esc(fmtMat(f.substituto))})${f.inicio_real ? " · " + partes(f.inicio_real).h + "–" + partes(f.fim_real).h : ""}`
+    : f.situacao === "horario" ? `Trabalhou ${partes(f.inicio_real).dd} ${partes(f.inicio_real).h} → ${partes(f.fim_real).dd} ${partes(f.fim_real).h}` : "";
+  return `<div class="vrow frow ${f ? (f.situacao === "falta" ? "off" : "done") : ""}" data-id="${v.vaga_id}" style="grid-template-columns:150px minmax(0,1fr)">
+    <div><div class="badges"><span class="bdg ${v.cargo}">${v.cargo}</span>${bdgServ(v.servico)}</div>
+      <div class="when">${a.h} → ${b.h}${b.d !== a.d ? ` <small>(sai ${b.dd})</small>` : ""}</div><div class="hint">${esc(v.vaga)}</div></div>
+    <div>
+      <div style="font-weight:700">${v.matricula ? esc(v.servidor) + ` <small class="muted">${esc(fmtMat(v.matricula))}</small>` : `<span class="muted">Sem servidor escalado</span>`}</div>
+      ${pode && !comecou ? `<p class="hint">O plantão ainda não começou.</p>` : ""}
+      <div class="seg" style="margin-top:6px;max-width:560px" role="group" aria-label="Situação">${opc.map(([k, t]) => `<button data-sit="${k}" aria-pressed="${sit === k}" ${pode && comecou ? "" : "disabled"}>${t}</button>`).join("")}${f && pode ? `<button data-sit="" title="Apagar registro">✕</button>` : ""}</div>
+      <div class="fx" hidden style="margin-top:8px"></div>
+      <div class="msg hint" style="margin-top:4px">${detalhe}${f && f.observacao ? (detalhe ? " · " : "") + esc(f.observacao) : ""}</div>
+    </div></div>`;
+}
+
+function vagaF(id) { return F.vagas.find(v => v.vaga_id === id); }
+function ligarFreq(row) {
+  const v = vagaF(Number(row.dataset.id)), fx = row.querySelector(".fx"), msg = row.querySelector(".msg");
+  const salvar = async (sit, extra = {}) => {
+    msg.className = "msg"; msg.textContent = "Salvando…";
+    const { error } = await sb.rpc("registrar_frequencia", { p_vaga: v.vaga_id, p_situacao: sit || null, p_substituto: extra.sub || null,
+      p_inicio: extra.ini || null, p_fim: extra.fim || null, p_obs: extra.obs || null });
+    if (error) { msg.className = "msg err"; msg.textContent = await msgErro(error); return; }
+    if (!sit) F.freq.delete(v.vaga_id); else F.freq.set(v.vaga_id, { vaga_id: v.vaga_id, situacao: sit, substituto: extra.sub || null, inicio_real: extra.ini || null, fim_real: extra.fim || null, observacao: extra.obs || null });
+    if (extra.sub && extra.subNome) F.nomes.set(extra.sub, extra.subNome);
+    const novo = document.createElement("div"); novo.innerHTML = linhaFreq(v, true, agoraLocal()); const n = novo.firstElementChild; row.replaceWith(n); ligarFreq(n);
+    n.querySelector(".msg").className = "msg ok"; n.querySelector(".msg").innerHTML = (n.querySelector(".msg").innerHTML ? n.querySelector(".msg").innerHTML + " · " : "") + "Salvo";
+    statusFreq(); const dias = $("#fVagas .days [aria-selected=true] span"); if (dias) { const vs = F.vagas.filter(x => x.data === F.dia), sem = vs.filter(x => x.matricula && !F.freq.has(x.vaga_id)).length; dias.textContent = sem ? sem + " sem registro" : "registrado"; }
+  };
+  row.querySelectorAll("[data-sit]").forEach(b => b.onclick = () => {
+    const s = b.dataset.sit;
+    if (s === "presente" || s === "falta" || s === "") return salvar(s);
+    const f = F.freq.get(v.vaga_id) || {};
+    fx.hidden = false;
+    if (s === "horario") {
+      fx.innerHTML = `<div class="row" style="gap:8px"><label class="f">Entrada<input type="datetime-local" class="xIni" value="${tsLocal(f.inicio_real || v.inicio)}"></label><label class="f">Saída<input type="datetime-local" class="xFim" value="${tsLocal(f.fim_real || v.fim)}"></label>
+        <label class="f" style="flex:2">Observação<input type="text" class="xObs" value="${esc(f.observacao || "")}" placeholder="Ex.: chegou 1h depois"></label><button class="btn primary small xOk" style="flex:0 0 auto">Salvar</button></div>`;
+      fx.querySelector(".xOk").onclick = () => salvar("horario", { ini: fx.querySelector(".xIni").value, fim: fx.querySelector(".xFim").value, obs: fx.querySelector(".xObs").value });
+    } else {
+      fx.innerHTML = `<div class="who-cell"><label class="f">Quem cobriu (${v.cargo})<input type="text" class="xSub" placeholder="Nome ou matrícula" autocomplete="off" value="${esc(f.substituto ? (F.nomes.get(f.substituto) || f.substituto) : "")}"></label></div>
+        <div class="row" style="gap:8px;margin-top:6px"><label class="f">Entrada (se diferente)<input type="datetime-local" class="xIni" value="${tsLocal(f.inicio_real)}"></label><label class="f">Saída (se diferente)<input type="datetime-local" class="xFim" value="${tsLocal(f.fim_real)}"></label>
+        <label class="f" style="flex:2">Observação<input type="text" class="xObs" value="${esc(f.observacao || "")}"></label><button class="btn primary small xOk" style="flex:0 0 auto" disabled>Salvar</button></div>`;
+      let escolhido = f.substituto ? { matricula: f.substituto, nome: F.nomes.get(f.substituto) || f.substituto } : null, box = null, timer;
+      const inp = fx.querySelector(".xSub"), ok = fx.querySelector(".xOk"); ok.disabled = !escolhido;
+      const fechar = () => { if (box) { box.remove(); box = null; } };
+      inp.oninput = () => { escolhido = null; ok.disabled = true; clearTimeout(timer); timer = setTimeout(async () => {
+        const t = inp.value.trim(); if (t.length < 2) return fechar();
+        const { data, error } = await sb.rpc("buscar_servidores", { p_texto: t, p_cargo: v.cargo, p_dep: v.departamento_id, p_outros: true });
+        fechar(); if (error) { msg.className = "msg err"; msg.textContent = await msgErro(error); return; }
+        box = document.createElement("div"); box.className = "sug";
+        box.innerHTML = (data || []).length ? data.map((s, k) => `<button type="button" data-k="${k}">${esc(s.nome)}<small>${esc(s.matricula)} · ${esc(s.cargo)} · ${esc(s.departamento || "")}</small></button>`).join("") : `<div style="padding:10px" class="hint">Ninguém encontrado.</div>`;
+        box.onmousedown = e => { const b = e.target.closest("[data-k]"); if (!b) return; e.preventDefault(); escolhido = data[+b.dataset.k]; inp.value = escolhido.nome; ok.disabled = false; fechar(); };
+        fx.querySelector(".who-cell").appendChild(box);
+      }, 250); };
+      inp.onblur = () => setTimeout(fechar, 150);
+      ok.onclick = () => salvar("substituido", { sub: escolhido.matricula, subNome: escolhido.nome, ini: fx.querySelector(".xIni").value, fim: fx.querySelector(".xFim").value, obs: fx.querySelector(".xObs").value });
+      inp.focus();
+    }
+  });
+}
+
+/* chefes das delegacias (DTO e focal indicam) */
+async function painelChefes(delegs) {
+  const el = $("#fChefes"); if (!el) return;
+  const { data, error } = await sb.rpc("listar_chefes", { p_dep: F.dep });
+  if (error) { el.innerHTML = `<p class="err">${esc(await msgErro(error))}</p>`; return; }
+  const porDel = new Map(); (data || []).forEach(c => { if (!porDel.has(c.delegacia_id)) porDel.set(c.delegacia_id, []); porDel.get(c.delegacia_id).push(c); });
+  el.innerHTML = `<h3 style="margin-bottom:6px">Chefes das delegacias</h3>
+    <p class="hint" style="margin-bottom:10px">O chefe entra com a matrícula (código no e-mail) e marca a frequência só da delegacia dele.</p>
+    <div class="scroll"><table><thead><tr><th>Delegacia</th><th>Chefe</th><th>E-mail</th><th></th></tr></thead><tbody>
+      ${delegs.map(d => (porDel.get(d.id) || [null]).map(c => `<tr><td>${esc(d.nome)}</td><td>${c ? esc(c.nome) + ` <small class="muted">${esc(fmtMat(c.matricula))}</small>` : `<span class="muted">—</span>`}</td><td>${c ? esc(c.email || "sem e-mail") : ""}</td>
+        <td>${c ? `<button class="btn small danger" data-rm="${d.id}|${esc(c.matricula)}">Tirar</button>` : ""}</td></tr>`).join("")).join("")}</tbody></table></div>
+    <div class="row" style="margin-top:12px;gap:8px">
+      <label class="f">Delegacia<select id="chDel">${delegs.map(d => `<option value="${d.id}" ${d.id === F.del ? "selected" : ""}>${esc(d.nome)}</option>`).join("")}</select></label>
+      <div class="who-cell" style="flex:2 1 220px"><label class="f">Servidor<input type="text" id="chServ" placeholder="Nome ou matrícula" autocomplete="off"></label></div>
+      <label class="f" style="flex:2 1 220px">E-mail institucional<input type="email" id="chMail" placeholder="nome@pc.ce.gov.br"></label>
+      <button class="btn primary" id="chInd" style="flex:0 0 auto" disabled>Indicar chefe</button></div>`;
+  let escolhido = null, box = null, timer;
+  const inp = $("#chServ"), bt = $("#chInd"), fechar = () => { if (box) { box.remove(); box = null; } };
+  inp.oninput = () => { escolhido = null; bt.disabled = true; clearTimeout(timer); timer = setTimeout(async () => {
+    const t = inp.value.trim(); if (t.length < 2) return fechar();
+    const { data: lst } = await sb.rpc("buscar_servidores", { p_texto: t, p_cargo: null, p_dep: F.dep, p_outros: true });
+    fechar(); box = document.createElement("div"); box.className = "sug";
+    box.innerHTML = (lst || []).length ? lst.map((s, k) => `<button type="button" data-k="${k}">${esc(s.nome)}<small>${esc(s.matricula)} · ${esc(s.cargo)} · ${esc(s.departamento || "")}</small></button>`).join("") : `<div style="padding:10px" class="hint">Ninguém encontrado.</div>`;
+    box.onmousedown = e => { const b = e.target.closest("[data-k]"); if (!b) return; e.preventDefault(); escolhido = lst[+b.dataset.k]; inp.value = escolhido.nome; bt.disabled = false; fechar(); };
+    inp.parentElement.parentElement.appendChild(box);
+  }, 250); };
+  inp.onblur = () => setTimeout(fechar, 150);
+  bt.onclick = async () => {
+    const { error: e2 } = await sb.rpc("definir_chefe", { p_delegacia: Number($("#chDel").value), p_matricula: escolhido.matricula, p_email: $("#chMail").value.trim() || null, p_remover: false });
+    if (e2) return toast(await msgErro(e2), true); toast("Chefe indicado: " + escolhido.nome + "."); painelChefes(delegs);
+  };
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => {
+    const [d, mtr] = b.dataset.rm.split("|"); if (!confirm("Tirar este chefe da delegacia?")) return;
+    const { error: e3 } = await sb.rpc("definir_chefe", { p_delegacia: Number(d), p_matricula: mtr, p_email: null, p_remover: true });
+    if (e3) return toast(await msgErro(e3), true); toast("Chefe retirado."); painelChefes(delegs);
+  });
+}
+
+/* Relatório de pagamento em PDF: resumo por servidor + anexo por plantão; linha de atesto para assinar no gov.br */
+async function pdfPagamento() {
+  const bt = $("#fPdf"), rot = bt.textContent; bt.disabled = true; bt.textContent = "Gerando…";
+  try {
+    const { data: todas, error } = await sb.rpc("pagamento", { p_evento: A.ev.id });
+    if (error) throw error;
+    const ls = (todas || []).filter(r => r.delegacia_id === F.delAtual.id);
+    if (!ls.length) throw new Error("Nenhuma vaga com servidor nesta delegacia.");
+    if (!window.jspdf) await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    if (!window.jspdf.jsPDF.API.autoTable) await carregarScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js");
+    const doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" }), W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), azul = [19, 35, 58];
+    const hm = t => partes(t).dd + " " + partes(t).h, num = v => (Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const sitTxt = r => r.situacao === "substituido" ? "Substituiu " + (r.escalado || "vaga sem servidor") : r.situacao === "horario" ? "Horário diferente" : r.situacao === "sem registro" ? "SEM REGISTRO" : nomeSit(r.situacao);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+    doc.text("POLÍCIA CIVIL DO ESTADO DO CEARÁ", W / 2, 14, { align: "center" });
+    doc.setFontSize(14); doc.text("RELATÓRIO DE PAGAMENTO – SERVIÇO EXTRAORDINÁRIO", W / 2, 21, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+    doc.text(A.ev.nome + "  ·  " + F.delAtual.nome + "  ·  " + (ls[0].departamento || ""), W / 2, 27, { align: "center" });
+    if (!F.fech) { doc.setTextColor(180, 40, 30); doc.setFont("helvetica", "bold"); doc.text("PRÉVIA – frequência ainda não fechada", W / 2, 33, { align: "center" }); doc.setTextColor(0); doc.setFont("helvetica", "normal"); }
+
+    /* resumo por servidor (só quem recebe: Extra trabalhado) */
+    const porServ = new Map();
+    ls.filter(r => r.servico === "Extra" && Number(r.valor) > 0).forEach(r => {
+      const k = r.matricula; if (!porServ.has(k)) porServ.set(k, { nome: r.nome, mat: r.matricula, cargo: r.cargo, n: 0, d: 0, no: 0, v: 0 });
+      const s = porServ.get(k); s.n++; s.d += r.horas_diurnas; s.no += r.horas_noturnas; s.v += Number(r.valor);
+    });
+    const res = [...porServ.values()].sort((a, b) => a.nome.localeCompare(b.nome)), tot = res.reduce((t, s) => ({ n: t.n + s.n, d: t.d + s.d, no: t.no + s.no, v: t.v + s.v }), { n: 0, d: 0, no: 0, v: 0 });
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text("1. Resumo por servidor (a pagar)", 14, 41);
+    const dir = d => { if (d.column.index >= 3) d.cell.styles.halign = "right"; };
+    doc.autoTable({ startY: 43, head: [["Servidor", "Matrícula", "Cargo", "Plantões", "H. diurnas", "H. noturnas", "Valor (R$)"]],
+      body: res.length ? res.map(s => [s.nome, fmtMat(s.mat), s.cargo, s.n, s.d, s.no, num(s.v)]) : [["Nenhum serviço extra a pagar.", "", "", "", "", "", ""]],
+      foot: [["TOTAL", "", "", tot.n, tot.d, tot.no, num(tot.v)]], theme: "grid", styles: { fontSize: 9, cellPadding: 1.6 }, headStyles: { fillColor: azul }, footStyles: { fillColor: [230, 234, 239], textColor: 20 }, didParseCell: dir });
+
+    /* anexo por plantão (todas as vagas com servidor, inclusive faltas) */
+    let y = doc.lastAutoTable.finalY + 9; if (y > H - 40) { doc.addPage(); y = 16; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text("2. Frequência por plantão", 14, y);
+    doc.autoTable({ startY: y + 2, head: [["Data", "Horário pago", "Servidor que recebe", "Matrícula", "Cargo", "Serviço", "Situação", "H. D", "H. N", "Valor (R$)", "Observação"]],
+      body: ls.map(r => [dataBR(r.data), r.minutos ? hm(r.inicio) + " a " + hm(r.fim) : "-", r.nome || "—", fmtMat(r.matricula), r.cargo, r.servico, sitTxt(r), r.horas_diurnas, r.horas_noturnas, num(r.valor), r.observacao || ""]),
+      theme: "striped", styles: { fontSize: 8, cellPadding: 1.3, valign: "middle" }, headStyles: { fillColor: azul },
+      didParseCell: d => { if (d.column.index >= 7 && d.column.index <= 9) d.cell.styles.halign = "right"; if (d.section === "body" && /FALTA|SEM REGISTRO/i.test(String(d.row.raw[6]))) d.cell.styles.textColor = [170, 30, 20]; },
+      columnStyles: { 2: { cellWidth: 52 }, 10: { cellWidth: 40 } } });
+    doc.setFontSize(8); doc.setFont("helvetica", "normal");
+    doc.text("Só o serviço Extra é pago: horas arredondadas para cima; diurno 06h–22h, noturno 22h–06h; sábado, domingo e feriado pelo valor noturno.", 14, doc.lastAutoTable.finalY + 5);
+
+    /* atesto e espaço para a assinatura gov.br */
+    y = doc.lastAutoTable.finalY + 14; if (y > H - 45) { doc.addPage(); y = 24; }
+    const chefe = (A.perfil.chefe_de || []).some(d => d.id === F.delAtual.id) ? A.perfil : null;
+    doc.setFontSize(10); doc.text("Atesto, para fins de pagamento, a frequência dos servidores acima no serviço extraordinário desta delegacia.", 14, y);
+    doc.text("Fortaleza/CE, " + new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) + ".", 14, y + 6);
+    doc.line(W / 2 - 60, y + 26, W / 2 + 60, y + 26);
+    doc.setFont("helvetica", "bold"); doc.text(chefe ? chefe.nome : "Chefe da delegacia", W / 2, y + 31, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.text((chefe ? "Matrícula " + fmtMat(chefe.matricula) + " · " : "") + "Chefe da " + F.delAtual.nome, W / 2, y + 36, { align: "center" });
+    doc.setFontSize(8); doc.setTextColor(110); doc.text("Assinar digitalmente em assinador.iti.br (gov.br). A assinatura pode ser posicionada sobre a linha acima.", W / 2, y + 42, { align: "center" }); doc.setTextColor(0);
+    const n = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(110); doc.text("Gerado em " + new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) + " · Página " + i + " de " + n, W - 14, H - 6, { align: "right" }); doc.setTextColor(0); }
+    doc.save(("pagamento-" + A.ev.nome + "-" + F.delAtual.nome).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w-]+/g, "-").replace(/-+/g, "-").toLowerCase() + ".pdf");
+  } catch (e) { toast(await msgErro(e), true); }
+  bt.disabled = false; bt.textContent = rot;
+}
 
 /* ------------------------------ RESUMO ------------------------------ */
 async function telaResumo() {
