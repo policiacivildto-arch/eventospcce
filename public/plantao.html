@@ -607,7 +607,7 @@ async function telefones(mats) {
 }
 function carregarScript2(src) { return new Promise((ok, erro) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => erro(new Error("Não foi possível carregar o gerador de Word. Verifique a internet.")); document.head.appendChild(s); }); }
 
-/* Escala em Word: departamento → delegacia → data → tabela CARGO | NOME | MATRÍCULA | TELEFONE (só vagas com nome) */
+/* Escala em Word: departamento → delegacia → data → tabela CARGO | SERVIÇO | NOME | MATRÍCULA | TELEFONE (só vagas com nome) */
 async function gerarWord(todosDeps) {
   const bt = $(todosDeps ? "#bWordTodos" : "#bWord"), rot = bt.textContent; bt.disabled = true; bt.textContent = "Gerando…";
   try {
@@ -629,14 +629,14 @@ async function gerarWord(todosDeps) {
       if (!gd.has(del)) gd.set(del, new Map()); const gl = gd.get(del);
       if (!gl.has(dia)) gl.set(dia, []); gl.get(dia).push(v);
     });
-    const ordemCargo = c => c === "DPC" ? 0 : 1;
+    const ordemCargo = c => c === "DPC" ? 0 : 1, ordemServ = s => /extra/i.test(s || "") ? 1 : 0;
     const dias = [...new Set(escalados.map(v => v.data))].sort();
     const fonte = "Arial";
     const t = (texto, o = {}) => new D.TextRun({ text: texto, font: fonte, size: o.size || 22, bold: !!o.bold, color: "000000" });
     const par = (texto, o = {}) => new D.Paragraph({ alignment: o.centro ? D.AlignmentType.CENTER : D.AlignmentType.LEFT, heading: o.heading, spacing: { before: o.antes || 0, after: o.depois ?? 80 }, children: [t(texto, o)] });
     const borda = { style: D.BorderStyle.SINGLE, size: 4, color: "000000" };
     const bordas = { top: borda, bottom: borda, left: borda, right: borda };
-    const larg = [1100, 4100, 2000, 2000];   /* proporção 60/220/120/120 do modelo */
+    const larg = [950, 1400, 3450, 1500, 1900];   /* CARGO | SERVIÇO | NOME | MATRÍCULA | TELEFONE */
     const cel = (texto, i, cab) => new D.TableCell({
       width: { size: larg[i], type: D.WidthType.DXA }, borders: bordas,
       shading: cab ? { type: D.ShadingType.CLEAR, color: "auto", fill: "D3D3D3" } : undefined,
@@ -656,10 +656,10 @@ async function gerarWord(todosDeps) {
         const gl = gd.get(del);
         [...gl.keys()].sort().forEach(dia => {
           corpo.push(par("DATA: " + dataBR(dia), { bold: true, antes: 80 }));
-          const linhas = gl.get(dia).slice().sort((a, b) => ordemCargo(a.cargo) - ordemCargo(b.cargo) || (!a.matricula) - (!b.matricula) || String(a.servidor || "").localeCompare(String(b.servidor || "")));
+          const linhas = gl.get(dia).slice().sort((a, b) => ordemCargo(a.cargo) - ordemCargo(b.cargo) || ordemServ(a.servico) - ordemServ(b.servico) || (!a.matricula) - (!b.matricula) || String(a.servidor || "").localeCompare(String(b.servidor || "")));
           corpo.push(new D.Table({ width: { size: larg.reduce((x, y) => x + y), type: D.WidthType.DXA }, columnWidths: larg, rows: [
-            new D.TableRow({ tableHeader: true, children: ["CARGO", "NOME", "MATRÍCULA", "TELEFONE"].map((x, i) => cel(x, i, true)) }),
-            ...linhas.map(v => new D.TableRow({ cantSplit: true, children: (v.matricula ? [v.cargo, String(v.servidor || "").toUpperCase(), fmtMat(v.matricula), fmtTel(tel.get(v.matricula))] : [v.cargo, "A DEFINIR", "-", "-"]).map((x, i) => cel(x, i, false)) }))] }));
+            new D.TableRow({ tableHeader: true, children: ["CARGO", "SERVIÇO", "NOME", "MATRÍCULA", "TELEFONE"].map((x, i) => cel(x, i, true)) }),
+            ...linhas.map(v => new D.TableRow({ cantSplit: true, children: (v.matricula ? [v.cargo, String(v.servico || "-").toUpperCase(), String(v.servidor || "").toUpperCase(), fmtMat(v.matricula), fmtTel(tel.get(v.matricula))] : [v.cargo, String(v.servico || "-").toUpperCase(), "A DEFINIR", "-", "-"]).map((x, i) => cel(x, i, false)) }))] }));
           corpo.push(par("", {}));
         });
       });
